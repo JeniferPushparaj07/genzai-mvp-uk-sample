@@ -1,11 +1,10 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   Brain,
   GraduationCap,
   Briefcase,
   Sparkles,
   Gamepad2,
-  Upload,
   Accessibility,
   Moon,
   Sun,
@@ -17,6 +16,10 @@ import {
   Search,
   ChevronRight,
   ChevronLeft,
+  Settings,
+  X,
+  ChevronDown,
+  ChevronUp,
 } from 'lucide-react';
 
 // A simple utility to concatenate class names
@@ -50,7 +53,7 @@ async function demoAnswer(prompt) {
 function transformExplanation(text, style) {
   switch (style) {
     case 'bullets':
-      return `• ${text.replace(/\\.\\s*/g, '\\n• ')}`;
+      return `• ${text.replace(/\.\s*/g, '\n• ')}`;
     case 'steps':
       return `Step 1→2→3. ${text}`;
     case 'analogy':
@@ -62,9 +65,9 @@ function transformExplanation(text, style) {
 
 // Function to score a CV against a Job Description
 function scoreCVvsJD(cvText, jdText) {
-  const norms = (s) => s.toLowerCase().replace(/[^a-z0-9\\s]/g, '');
-  const cv = norms(cvText).split(/\\s+/);
-  const jd = norms(jdText).split(/\\s+/);
+  const norms = (s) => s.toLowerCase().replace(/[^a-z0-9\s]/g, '');
+  const cv = norms(cvText).split(/\s+/);
+  const jd = norms(jdText).split(/\s+/);
   const set = new Set(jd);
   let hits = 0;
   for (const w of cv) {
@@ -166,7 +169,7 @@ export default function GenZAI_MVP_v3() {
     <div className={appClass}>
       <a href="#main" className="sr-only focus:not-sr-only focus:absolute focus:top-2 focus:left-2 bg-purple-600 text-white rounded px-3 py-1">Skip to content</a>
       <header className="sticky top-0 z-50 border-b border-gray-200 dark:border-gray-700 p-3 flex items-center justify-between gap-3 backdrop-blur supports-[backdrop-filter]:bg-white/60 dark:supports-[backdrop-filter]:bg-gray-900/60 flex-wrap">
-        <LogoArea />
+        <LogoArea tagline={tagline} />
         <A11yBar
           dark={dark}
           setDark={setDark}
@@ -182,11 +185,11 @@ export default function GenZAI_MVP_v3() {
       </header>
 
       <main id="main" className="container mx-auto max-w-6xl px-4 pb-24">
-        <Hero tagline={tagline} />
         {!profile.assessed ? (
           <OnboardingScreen profile={profile} setProfile={setProfile} />
         ) : (
           <>
+            <Hero />
             {/* Tabs for different user modes */}
             <div className="mt-6">
               <div className="flex bg-gray-200 dark:bg-gray-800 p-1 rounded-full space-x-1 sm:space-x-2">
@@ -238,7 +241,7 @@ export default function GenZAI_MVP_v3() {
 }
 
 // ---------- Header Components ----------
-function LogoArea() {
+function LogoArea({ tagline }) {
   return (
     <div className="flex items-center gap-2">
       <div className="h-10 w-10 rounded-full bg-gradient-to-br from-purple-400 to-blue-600 flex items-center justify-center overflow-hidden">
@@ -246,7 +249,7 @@ function LogoArea() {
       </div>
       <div>
         <div className="font-bold text-lg">GenZ.AI</div>
-        <div className="text-xs opacity-70">Moving minds to an immersive world</div>
+        <div className="text-xs opacity-70">{tagline}</div>
       </div>
     </div>
   );
@@ -257,102 +260,124 @@ function A11yBar({
   bigText, setBigText, dyslexia, setDyslexia,
   reduceMotion, setReduceMotion
 }) {
+  const [isMenuOpen, setIsMenuOpen] = useState(false);
+
   return (
-    <div className="flex items-center gap-3 text-sm flex-wrap justify-end">
-      <span className="px-2 py-1 bg-gray-200 dark:bg-gray-800 rounded-full text-xs flex items-center gap-1">
-        <Accessibility className="h-3 w-3" /> Inclusive
-      </span>
-      <div className="flex items-center gap-1" title="Dark mode">
-        <Sun className="h-4 w-4" />
+    <div className="flex flex-col md:flex-row items-end md:items-center gap-3 md:gap-3 text-sm flex-wrap justify-end">
+      {/* Settings button for mobile */}
+      <div className="md:hidden">
         <button
-          onClick={() => setDark(!dark)}
-          className={cx(
-            "w-10 h-6 rounded-full p-1 transition-colors duration-200",
-            dark ? "bg-purple-600" : "bg-gray-400"
-          )}
+          onClick={() => setIsMenuOpen(!isMenuOpen)}
+          className="p-2 rounded-full bg-gray-200 dark:bg-gray-800 transition-colors"
+          aria-expanded={isMenuOpen}
+          aria-controls="a11y-menu"
         >
-          <div
-            className={cx(
-              "w-4 h-4 bg-white rounded-full transition-transform duration-200",
-              dark ? "translate-x-4" : "translate-x-0"
-            )}
-          />
+          {isMenuOpen ? <X className="h-5 w-5" /> : <Settings className="h-5 w-5" />}
         </button>
-        <Moon className="h-4 w-4" />
       </div>
-      <label className="flex items-center gap-2">
-        High contrast
-        <button
-          onClick={() => setHighContrast(!highContrast)}
-          className={cx(
-            "w-10 h-6 rounded-full p-1 transition-colors duration-200",
-            highContrast ? "bg-purple-600" : "bg-gray-400"
-          )}
-        >
-          <div
-            className={cx(
-              "w-4 h-4 bg-white rounded-full transition-transform duration-200",
-              highContrast ? "translate-x-4" : "translate-x-0"
-            )}
-          />
-        </button>
-      </label>
-      <label className="flex items-center gap-2">
-        Larger text
-        <button
-          onClick={() => setBigText(!bigText)}
-          className={cx(
-            "w-10 h-6 rounded-full p-1 transition-colors duration-200",
-            bigText ? "bg-purple-600" : "bg-gray-400"
-          )}
-        >
-          <div
-            className={cx(
-              "w-4 h-4 bg-white rounded-full transition-transform duration-200",
-              bigText ? "translate-x-4" : "translate-x-0"
-            )}
-          />
-        </button>
-      </label>
-      <label className="flex items-center gap-2">
-        Dyslexia-friendly
-        <button
-          onClick={() => setDyslexia(!dyslexia)}
-          className={cx(
-            "w-10 h-6 rounded-full p-1 transition-colors duration-200",
-            dyslexia ? "bg-purple-600" : "bg-gray-400"
-          )}
-        >
-          <div
-            className={cx(
-              "w-4 h-4 bg-white rounded-full transition-transform duration-200",
-              dyslexia ? "translate-x-4" : "translate-x-0"
-            )}
-          />
-        </button>
-      </label>
-      <label className="flex items-center gap-2">
-        Reduce motion
-        <button
-          onClick={() => setReduceMotion(!reduceMotion)}
-          className={cx(
-            "w-10 h-6 rounded-full p-1 transition-colors duration-200",
-            reduceMotion ? "bg-purple-600" : "bg-gray-400"
-          )}
-        >
-          <div
-            className={cx(
-              "w-4 h-4 bg-white rounded-full transition-transform duration-200",
-              reduceMotion ? "translate-x-4" : "translate-x-0"
-            )}
-          />
-        </button>
-      </label>
+
+      {/* Accessibility menu - hidden on mobile by default */}
+      <div
+        id="a11y-menu"
+        className={cx(
+          "w-full md:w-auto overflow-hidden transition-all duration-300 ease-in-out md:flex md:gap-3 md:items-center",
+          isMenuOpen ? "max-h-screen opacity-100 mt-2 md:mt-0" : "max-h-0 opacity-0 md:max-h-full md:opacity-100"
+        )}
+      >
+        <div className="flex flex-col md:flex-row items-start md:items-center gap-2 md:gap-3 p-3 md:p-0 rounded-lg bg-gray-100 dark:bg-gray-800 md:bg-transparent md:dark:bg-transparent">
+          <span className="md:hidden text-xs font-semibold">Accessibility Options</span>
+          <label className="flex items-center gap-2">
+            <span className="text-xs md:text-sm">Dark mode</span>
+            <button
+              onClick={() => setDark(!dark)}
+              className={cx(
+                "w-10 h-6 rounded-full p-1 transition-colors duration-200",
+                dark ? "bg-purple-600" : "bg-gray-400"
+              )}
+            >
+              <div
+                className={cx(
+                  "w-4 h-4 bg-white rounded-full transition-transform duration-200",
+                  dark ? "translate-x-4" : "translate-x-0"
+                )}
+              />
+            </button>
+          </label>
+          <label className="flex items-center gap-2">
+            <span className="text-xs md:text-sm">High contrast</span>
+            <button
+              onClick={() => setHighContrast(!highContrast)}
+              className={cx(
+                "w-10 h-6 rounded-full p-1 transition-colors duration-200",
+                highContrast ? "bg-purple-600" : "bg-gray-400"
+              )}
+            >
+              <div
+                className={cx(
+                  "w-4 h-4 bg-white rounded-full transition-transform duration-200",
+                  highContrast ? "translate-x-4" : "translate-x-0"
+                )}
+              />
+            </button>
+          </label>
+          <label className="flex items-center gap-2">
+            <span className="text-xs md:text-sm">Larger text</span>
+            <button
+              onClick={() => setBigText(!bigText)}
+              className={cx(
+                "w-10 h-6 rounded-full p-1 transition-colors duration-200",
+                bigText ? "bg-purple-600" : "bg-gray-400"
+              )}
+            >
+              <div
+                className={cx(
+                  "w-4 h-4 bg-white rounded-full transition-transform duration-200",
+                  bigText ? "translate-x-4" : "translate-x-0"
+                )}
+              />
+            </button>
+          </label>
+          <label className="flex items-center gap-2">
+            <span className="text-xs md:text-sm">Dyslexia-friendly</span>
+            <button
+              onClick={() => setDyslexia(!dyslexia)}
+              className={cx(
+                "w-10 h-6 rounded-full p-1 transition-colors duration-200",
+                dyslexia ? "bg-purple-600" : "bg-gray-400"
+              )}
+            >
+              <div
+                className={cx(
+                  "w-4 h-4 bg-white rounded-full transition-transform duration-200",
+                  dyslexia ? "translate-x-4" : "translate-x-0"
+                )}
+              />
+            </button>
+          </label>
+          <label className="flex items-center gap-2">
+            <span className="text-xs md:text-sm">Reduce motion</span>
+            <button
+              onClick={() => setReduceMotion(!reduceMotion)}
+              className={cx(
+                "w-10 h-6 rounded-full p-1 transition-colors duration-200",
+                reduceMotion ? "bg-purple-600" : "bg-gray-400"
+              )}
+            >
+              <div
+                className={cx(
+                  "w-4 h-4 bg-white rounded-full transition-transform duration-200",
+                  reduceMotion ? "translate-x-4" : "translate-x-0"
+                )}
+              />
+            </button>
+          </label>
+        </div>
+      </div>
     </div>
   );
 }
 
-function Hero({ tagline }) {
+function Hero() {
   return (
     <section className="mt-6">
       <div className="bg-white dark:bg-gray-800 p-6 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-700">
@@ -363,7 +388,7 @@ function Hero({ tagline }) {
         </div>
         <div className="grid gap-4 md:grid-cols-3">
           <div className="md:col-span-2 leading-relaxed">
-            <p>{tagline}. Psychometric onboarding tunes <strong className="font-bold">tone, pace & style</strong> across Student, Professional and Hobbyist modes.</p>
+            <p>Moving minds to an immersive world. Psychometric onboarding tunes <strong className="font-bold">tone, pace & style</strong> across Student, Professional and Hobbyist modes.</p>
             <ul className="list-disc pl-5 mt-2 text-sm opacity-90">
               <li>Student: pick class → subject appears → ask questions → retry explanations until it clicks.</li>
               <li>Professional: CV→ATS tailoring to a JD + job search demo.</li>
@@ -386,7 +411,7 @@ function Hero({ tagline }) {
   );
 }
 
-// ---------- New Onboarding Flow Component ----------
+// ---------- Onboarding Flow Component ----------
 function OnboardingScreen({ profile, setProfile }) {
   const [step, setStep] = useState(0);
 
@@ -610,11 +635,11 @@ function ATSTailor({ profile }) {
   }
 
   function renderATS() {
-    const lines = cv.split(/\\n+/).map(l => l.trim()).filter(Boolean);
+    const lines = cv.split(/\n+/).map(l => l.trim()).filter(Boolean);
     return lines.map(l => {
       const hit = suggestions.find(k => l.toLowerCase().includes(k));
       return hit ? `• ${l} — (${hit})` : `• ${l}`;
-    }).join("\\n");
+    }).join("\n");
   }
 
   return (
