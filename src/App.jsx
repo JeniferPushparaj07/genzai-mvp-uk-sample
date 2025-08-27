@@ -1,860 +1,691 @@
-import React, { useEffect, useState } from 'react';
-import {
-  Brain,
-  GraduationCap,
-  Briefcase,
-  Sparkles,
-  Gamepad2,
-  Accessibility,
-  Moon,
-  Sun,
-  ShieldCheck,
-  BookOpenCheck,
-  MessagesSquare,
-  CheckCircle2,
-  FileText,
-  Search,
-  ChevronRight,
-  ChevronLeft,
-  Settings,
-  X,
-  ChevronDown,
-  ChevronUp,
-} from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { Sparkles, GraduationCap, Briefcase, Smile, Check, ArrowRight, ArrowLeft, Settings, X, Search, FileText, BriefcaseMedical } from 'lucide-react';
 
-// A simple utility to concatenate class names
-const cx = (...xs) => xs.filter(Boolean).join(' ');
+// Main App component
+const App = () => {
+  // State to manage the current view of the application
+  const [currentView, setCurrentView] = useState('home'); // 'home', 'test', 'student', 'professional', 'hobbyist'
+  // State to store the selected mode from the home screen
+  const [selectedMode, setSelectedMode] = useState('');
+  // State to track the user's answers in the psychometric test
+  const [testAnswers, setTestAnswers] = useState({});
+  // State for managing the psychometric test questions and progression
+  const [currentTestQuestion, setCurrentTestQuestion] = useState(0);
 
-// A simple hook for persisting state to local storage
-function useLocalStorage(key, init) {
-  const [v, setV] = useState(() => {
+  // State for accessibility settings, initialized from localStorage if available
+  const [accessibility, setAccessibility] = useState(() => {
     try {
-      const s = localStorage.getItem(key);
-      return s ? JSON.parse(s) : init;
-    } catch {
-      return init;
+      const storedSettings = localStorage.getItem('genzai_accessibility');
+      return storedSettings ? JSON.parse(storedSettings) : {
+        darkMode: false,
+        highContrast: false,
+        dyslexiaFriendly: false,
+        reduceMotion: false,
+      };
+    } catch (e) {
+      console.error("Could not load accessibility settings from localStorage", e);
+      return {
+        darkMode: false,
+        highContrast: false,
+        dyslexiaFriendly: false,
+        reduceMotion: false,
+      };
     }
   });
+
+  // State to control the visibility of the accessibility settings menu
+  const [showAccessibilityMenu, setShowAccessibilityMenu] = useState(false);
+
+  // useEffect to apply accessibility settings and save them to localStorage
   useEffect(() => {
+    const root = document.documentElement;
+    if (accessibility.darkMode) {
+      root.classList.add('dark');
+    } else {
+      root.classList.remove('dark');
+    }
+
+    if (accessibility.highContrast) {
+      root.classList.add('high-contrast');
+    } else {
+      root.classList.remove('high-contrast');
+    }
+
+    if (accessibility.dyslexiaFriendly) {
+      root.classList.add('dyslexia-friendly');
+    } else {
+      root.classList.remove('dyslexia-friendly');
+    }
+
+    if (accessibility.reduceMotion) {
+      root.classList.add('reduce-motion');
+    } else {
+      root.classList.remove('reduce-motion');
+    }
+
+    // Save settings to localStorage
     try {
-      localStorage.setItem(key, JSON.stringify(v));
-    } catch {}
-  }, [key, v]);
-  return [v, setV];
-}
-
-// Mock AI response function to simulate an API call
-async function demoAnswer(prompt) {
-  const canned = ["Let's break that down…", "Here’s an analogy…", "A quick summary then an example…"];
-  return `${canned[Math.floor(Math.random() * canned.length)]} ${prompt}`;
-}
-
-// Function to transform an explanation based on the user's chosen style
-function transformExplanation(text, style) {
-  switch (style) {
-    case 'bullets':
-      return `• ${text.replace(/\.\s*/g, '\n• ')}`;
-    case 'steps':
-      return `Step 1→2→3. ${text}`;
-    case 'analogy':
-      return `Imagine a story: ${text}`;
-    default:
-      return `In one sentence: ${text}`;
-  }
-}
-
-// Function to score a CV against a Job Description
-function scoreCVvsJD(cvText, jdText) {
-  const norms = (s) => s.toLowerCase().replace(/[^a-z0-9\s]/g, '');
-  const cv = norms(cvText).split(/\s+/);
-  const jd = norms(jdText).split(/\s+/);
-  const set = new Set(jd);
-  let hits = 0;
-  for (const w of cv) {
-    if (set.has(w)) {
-      hits++;
+      localStorage.setItem('genzai_accessibility', JSON.stringify(accessibility));
+    } catch (e) {
+      console.error("Could not save accessibility settings to localStorage", e);
     }
-  }
-  const score = jd.length ? Math.min(100, Math.round((hits / jd.length) * 120)) : 0;
-  const freq = {};
-  for (const w of jd) {
-    freq[w] = (freq[w] || 0) + 1;
-  }
-  const top = Object.entries(freq)
-    .filter(([w]) => w.length > 3)
-    .sort((a, b) => b[1] - a[1])
-    .slice(0, 12)
-    .map(([w]) => w);
-  return { score, top };
-}
+  }, [accessibility]);
 
-// Inbuilt UK curriculum demo data
-const UK_CLASSES = {
-  "KS3 (Years 7–9)": {
-    subjects: ["Maths", "Biology", "Chemistry", "Physics", "Computer Science", "Geography", "History", "English"],
-    objectives: {
-      Maths: ["Use ratio and proportion", "Solve linear equations", "Area and perimeter"],
-      Biology: ["Cell structure and functions", "Organs & systems", "Photosynthesis basics"],
-      Chemistry: ["Particle model", "Elements, compounds, mixtures", "Acids and alkalis"],
-      Physics: ["Forces and motion", "Energy transfers", "Waves: sound & light"],
-      "Computer Science": ["Algorithms and flowcharts", "Scratch/Python basics", "Data representation"],
-      Geography: ["UK physical landscapes", "Weather & climate", "Population change"],
-      History: ["Medieval England", "Industrial Revolution", "World War I"],
-      English: ["Non‑fiction analysis", "Narrative devices", "Grammar & punctuation"]
-    }
-  },
-  "GCSE (Years 10–11)": {
-    subjects: ["Maths", "Biology", "Chemistry", "Physics", "Computer Science", "Business", "Geography", "History", "English Language"],
-    objectives: {
-      Maths: ["Simultaneous equations", "Quadratics (factor/solve)", "Statistics: averages & spread"],
-      Biology: ["Enzymes & digestion", "Homeostasis", "Genetics: Punnett squares"],
-      Chemistry: ["Ionic/covalent bonding", "Reacting masses", "Electrolysis"],
-      Physics: ["Forces & vectors", "Electricity: V=IR", "Radioactivity"],
-      "Computer Science": ["Trace pseudocode", "Time/space complexity (informal)", "Databases & SQL"],
-      Business: ["Marketing mix", "Cash‑flow forecasts", "Stakeholders"],
-      Geography: ["Coasts & rivers", "Resource management", "Global development"],
-      History: ["Weimar & Nazi Germany", "Health & Medicine", "Cold War"],
-      "English Language": ["Paper 1 Q2/Q3 techniques", "Comparative analysis", "Evaluation"]
-    }
-  },
-  "A‑Level (Years 12–13)": {
-    subjects: ["Maths", "Biology", "Chemistry", "Physics", "Computer Science", "Economics", "Psychology"],
-    objectives: {
-      Maths: ["Differentiation & integration", "Proof by induction", "Vectors"],
-      Biology: ["Translation & transcription", "Immune response", "Ecology & sampling"],
-      Chemistry: ["Organic mechanisms", "Equilibrium & Kc", "Thermodynamics"],
-      Physics: ["SHM", "Electric fields & capacitors", "Quantum phenomena"],
-      "Computer Science": ["Complexity & Big‑O", "OOP patterns", "Database normalisation"],
-      Economics: ["Elasticities", "Market failure & gov. intervention", "Monetary policy"],
-      Psychology: ["Research methods", "Attachment theories", "Biopsychology basics"]
-    }
-  }
-};
-
-// Main application component
-export default function GenZAI_MVP_v3() {
-  const [tagline] = useState("Moving minds to an immersive world");
-  
-  // State for accessibility settings
-  const [dark, setDark] = useLocalStorage("a11y_dark", false);
-  const [highContrast, setHighContrast] = useLocalStorage("a11y_contrast", false);
-  const [bigText, setBigText] = useLocalStorage("a11y_bigtext", false);
-  const [dyslexia, setDyslexia] = useLocalStorage("a11y_dyslexia", false);
-  const [reduceMotion, setReduceMotion] = useLocalStorage("a11y_reduce_motion", false);
-
-  // State for the user's psychometric profile
-  const [profile, setProfile] = useLocalStorage("genzai_profile", {
-    assessed: false,
-    mode: "student", // Default mode
-    style: "bullets",
-    tone: "encouraging",
-    pace: "normal"
-  });
-
-  const [tab, setTab] = useState(profile.mode);
-
-  // Apply dark mode class to the HTML root element
-  useEffect(() => {
-    document.documentElement.classList.toggle("dark", dark);
-  }, [dark]);
-
-  // Dynamic class names based on accessibility settings
-  const appClass = cx(
-    "min-h-screen font-sans",
-    dark ? "bg-gray-950 text-gray-100" : "bg-white text-slate-900",
-    highContrast ? "contrast-150" : "",
-    bigText ? "text-[17px]" : "text-base",
-    dyslexia ? "tracking-wide" : ""
-  );
-
-  return (
-    <div className={appClass}>
-      <a href="#main" className="sr-only focus:not-sr-only focus:absolute focus:top-2 focus:left-2 bg-purple-600 text-white rounded px-3 py-1">Skip to content</a>
-
-      {!profile.assessed ? (
-        <OnboardingScreen profile={profile} setProfile={setProfile} />
-      ) : (
-        <>
-          <header className="sticky top-0 z-50 border-b border-gray-200 dark:border-gray-700 p-3 flex items-center justify-between gap-3 backdrop-blur supports-[backdrop-filter]:bg-white/60 dark:supports-[backdrop-filter]:bg-gray-900/60 flex-wrap">
-            <LogoArea tagline={tagline} />
-            <A11yBar
-              dark={dark}
-              setDark={setDark}
-              highContrast={highContrast}
-              setHighContrast={setHighContrast}
-              bigText={bigText}
-              setBigText={setBigText}
-              dyslexia={dyslexia}
-              setDyslexia={setDyslexia}
-              reduceMotion={reduceMotion}
-              setReduceMotion={setReduceMotion}
-            />
-          </header>
-
-          <main id="main" className="container mx-auto max-w-6xl px-4 pb-24">
-            <Hero />
-            {/* Tabs for different user modes */}
-            <div className="mt-6">
-              <div className="flex bg-gray-200 dark:bg-gray-800 p-1 rounded-full space-x-1 sm:space-x-2">
-                <button
-                  onClick={() => setTab("student")}
-                  className={cx(
-                    "flex-1 p-2 rounded-full font-medium transition-colors duration-200 text-sm md:text-base",
-                    tab === "student" ? "bg-white shadow-sm dark:bg-gray-700" : "hover:bg-gray-300 dark:hover:bg-gray-700"
-                  )}
-                >
-                  <GraduationCap className="h-4 w-4 inline-block mr-1 md:mr-2" /> Student
-                </button>
-                <button
-                  onClick={() => setTab("pro")}
-                  className={cx(
-                    "flex-1 p-2 rounded-full font-medium transition-colors duration-200 text-sm md:text-base",
-                    tab === "pro" ? "bg-white shadow-sm dark:bg-gray-700" : "hover:bg-gray-300 dark:hover:bg-gray-700"
-                  )}
-                >
-                  <Briefcase className="h-4 w-4 inline-block mr-1 md:mr-2" /> Professional
-                </button>
-                <button
-                  onClick={() => setTab("hobby")}
-                  className={cx(
-                    "flex-1 p-2 rounded-full font-medium transition-colors duration-200 text-sm md:text-base",
-                    tab === "hobby" ? "bg-white shadow-sm dark:bg-gray-700" : "hover:bg-gray-300 dark:hover:bg-gray-700"
-                  )}
-                >
-                  <Gamepad2 className="h-4 w-4 inline-block mr-1 md:mr-2" /> Hobbyist
-                </button>
-              </div>
-
-              {/* Tab content based on the selected tab */}
-              {tab === "student" && <StudentMode profile={profile} reduceMotion={reduceMotion} />}
-              {tab === "pro" && <ProfessionalMode profile={profile} />}
-              {tab === "hobby" && <HobbyMode profile={profile} />}
-            </div>
-          </main>
-          
-          <footer className="border-t border-gray-200 dark:border-gray-700">
-            <div className="container mx-auto max-w-6xl px-4 py-6 text-sm flex items-center gap-2">
-              <ShieldCheck className="h-4 w-4" /> Inclusive, privacy‑first, UK‑only MVP.
-            </div>
-          </footer>
-        </>
-      )}
-    </div>
-  );
-}
-
-// ---------- Header Components ----------
-function LogoArea({ tagline }) {
-  return (
-    <div className="flex items-center gap-2">
-      <div className="h-10 w-10 rounded-full bg-gradient-to-br from-purple-400 to-blue-600 flex items-center justify-center overflow-hidden">
-        <span className="text-white font-bold">GZ</span>
-      </div>
-      <div>
-        <div className="font-bold text-lg">GenZ.AI</div>
-        <div className="text-xs opacity-70">{tagline}</div>
-      </div>
-    </div>
-  );
-}
-
-function A11yBar({
-  dark, setDark, highContrast, setHighContrast,
-  bigText, setBigText, dyslexia, setDyslexia,
-  reduceMotion, setReduceMotion
-}) {
-  const [isMenuOpen, setIsMenuOpen] = useState(false);
-
-  return (
-    <div className="flex flex-col md:flex-row items-end md:items-center gap-3 md:gap-3 text-sm flex-wrap justify-end">
-      {/* Settings button for mobile */}
-      <div className="md:hidden">
-        <button
-          onClick={() => setIsMenuOpen(!isMenuOpen)}
-          className="p-2 rounded-full bg-gray-200 dark:bg-gray-800 transition-colors"
-          aria-expanded={isMenuOpen}
-          aria-controls="a11y-menu"
-        >
-          {isMenuOpen ? <X className="h-5 w-5" /> : <Settings className="h-5 w-5" />}
-        </button>
-      </div>
-
-      {/* Accessibility menu - hidden on mobile by default */}
-      <div
-        id="a11y-menu"
-        className={cx(
-          "w-full md:w-auto overflow-hidden transition-all duration-300 ease-in-out md:flex md:gap-3 md:items-center",
-          isMenuOpen ? "max-h-screen opacity-100 mt-2 md:mt-0" : "max-h-0 opacity-0 md:max-h-full md:opacity-100"
-        )}
-      >
-        <div className="flex flex-col md:flex-row items-start md:items-center gap-2 md:gap-3 p-3 md:p-0 rounded-lg bg-gray-100 dark:bg-gray-800 md:bg-transparent md:dark:bg-transparent">
-          <span className="md:hidden text-xs font-semibold">Accessibility Options</span>
-          <label className="flex items-center gap-2">
-            <span className="text-xs md:text-sm">Dark mode</span>
-            <button
-              onClick={() => setDark(!dark)}
-              className={cx(
-                "w-10 h-6 rounded-full p-1 transition-colors duration-200",
-                dark ? "bg-purple-600" : "bg-gray-400"
-              )}
-            >
-              <div
-                className={cx(
-                  "w-4 h-4 bg-white rounded-full transition-transform duration-200",
-                  dark ? "translate-x-4" : "translate-x-0"
-                )}
-              />
-            </button>
-          </label>
-          <label className="flex items-center gap-2">
-            <span className="text-xs md:text-sm">High contrast</span>
-            <button
-              onClick={() => setHighContrast(!highContrast)}
-              className={cx(
-                "w-10 h-6 rounded-full p-1 transition-colors duration-200",
-                highContrast ? "bg-purple-600" : "bg-gray-400"
-              )}
-            >
-              <div
-                className={cx(
-                  "w-4 h-4 bg-white rounded-full transition-transform duration-200",
-                  highContrast ? "translate-x-4" : "translate-x-0"
-                )}
-              />
-            </button>
-          </label>
-          <label className="flex items-center gap-2">
-            <span className="text-xs md:text-sm">Larger text</span>
-            <button
-              onClick={() => setBigText(!bigText)}
-              className={cx(
-                "w-10 h-6 rounded-full p-1 transition-colors duration-200",
-                bigText ? "bg-purple-600" : "bg-gray-400"
-              )}
-            >
-              <div
-                className={cx(
-                  "w-4 h-4 bg-white rounded-full transition-transform duration-200",
-                  bigText ? "translate-x-4" : "translate-x-0"
-                )}
-              />
-            </button>
-          </label>
-          <label className="flex items-center gap-2">
-            <span className="text-xs md:text-sm">Dyslexia-friendly</span>
-            <button
-              onClick={() => setDyslexia(!dyslexia)}
-              className={cx(
-                "w-10 h-6 rounded-full p-1 transition-colors duration-200",
-                dyslexia ? "bg-purple-600" : "bg-gray-400"
-              )}
-            >
-              <div
-                className={cx(
-                  "w-4 h-4 bg-white rounded-full transition-transform duration-200",
-                  dyslexia ? "translate-x-4" : "translate-x-0"
-                )}
-              />
-            </button>
-          </label>
-          <label className="flex items-center gap-2">
-            <span className="text-xs md:text-sm">Reduce motion</span>
-            <button
-              onClick={() => setReduceMotion(!reduceMotion)}
-              className={cx(
-                "w-10 h-6 rounded-full p-1 transition-colors duration-200",
-                reduceMotion ? "bg-purple-600" : "bg-gray-400"
-              )}
-            >
-              <div
-                className={cx(
-                  "w-4 h-4 bg-white rounded-full transition-transform duration-200",
-                  reduceMotion ? "translate-x-4" : "translate-x-0"
-                )}
-              />
-            </button>
-          </label>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function Hero() {
-  return (
-    <section className="mt-6">
-      <div className="bg-white dark:bg-gray-800 p-6 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-700">
-        <div className="pb-2">
-          <h2 className="text-2xl font-bold flex items-center gap-2">
-            <Brain className="h-6 w-6" /> GenZ.AI – Adaptive Learning & Careers
-          </h2>
-        </div>
-        <div className="grid gap-4 md:grid-cols-3">
-          <div className="md:col-span-2 leading-relaxed">
-            <p>Moving minds to an immersive world. Psychometric onboarding tunes <strong className="font-bold">tone, pace & style</strong> across Student, Professional and Hobbyist modes.</p>
-            <ul className="list-disc pl-5 mt-2 text-sm opacity-90">
-              <li>Student: pick class → subject appears → ask questions → retry explanations until it clicks.</li>
-              <li>Professional: CV→ATS tailoring to a JD + job search demo.</li>
-              <li>Hobbyist: free chat & micro‑lessons.</li>
-            </ul>
-          </div>
-          <div className="rounded-2xl bg-gradient-to-br from-purple-200/70 to-indigo-200/70 dark:from-purple-900/40 dark:to-indigo-900/40 p-4">
-            <h3 className="font-semibold mb-2 flex items-center gap-2">
-              <ShieldCheck className="h-4 w-4" /> Compliance‑first
-            </h3>
-            <ul className="text-sm opacity-90 space-y-1">
-              <li>GDPR + Age‑Appropriate Design Code</li>
-              <li>Privacy by default (no external sends in this demo)</li>
-              <li>Keyboard & screen‑reader friendly UI</li>
-            </ul>
-          </div>
-        </div>
-      </div>
-    </section>
-  );
-}
-
-// ---------- Onboarding Flow Component ----------
-function OnboardingScreen({ profile, setProfile }) {
-  const [step, setStep] = useState(0);
-
-  const steps = [
+  // Data for the psychometric test
+  const psychometricQuestions = [
     {
-      title: "Step 1: Your Learning Style",
-      description: "How do you prefer to learn new concepts?",
-      options: [
-        { label: "Visual/Bullets", value: "bullets" },
-        { label: "Step‑by‑step", value: "steps" },
-        { label: "Analogies/Stories", value: "analogy" },
-        { label: "Concise one‑liners", value: "simple" },
-      ],
-      field: "style"
+      id: 1,
+      text: 'Do you prefer learning through visual aids (diagrams, videos) or reading text?',
+      options: ['Visual Aids', 'Text'],
+      type: 'learning_style',
     },
     {
-      title: "Step 2: Your Preferred Tone",
-      description: "What kind of tone helps you focus and stay motivated?",
-      options: [
-        { label: "Encouraging", value: "encouraging" },
-        { label: "Neutral", value: "neutral" },
-        { label: "Direct", value: "direct" },
-      ],
-      field: "tone"
+      id: 2,
+      text: 'When faced with a complex problem, do you prefer a step-by-step guide or hands-on experimentation?',
+      options: ['Step-by-step guide', 'Hands-on experimentation'],
+      type: 'problem_solving',
     },
     {
-      title: "Step 3: Your Learning Pace",
-      description: "How quickly do you like to move through topics?",
-      options: [
-        { label: "Slow", value: "slow" },
-        { label: "Normal", value: "normal" },
-        { label: "Fast", value: "fast" },
-      ],
-      field: "pace"
+      id: 3,
+      text: 'Which best describes your motivation for learning?',
+      options: ['To master a new skill', 'To solve a specific, real-world problem', 'To satisfy personal curiosity'],
+      type: 'motivation',
     },
-    {
-      title: "Step 4: Your Primary Goal",
-      description: "Which area best fits your needs?",
-      options: [
-        { label: "Student (UK curriculum)", value: "student" },
-        { label: "Professional (Careers/CV)", value: "pro" },
-        { label: "Hobbyist (Free chat)", value: "hobby" },
-      ],
-      field: "mode"
-    }
   ];
 
-  const currentStepData = steps[step];
-
-  const handleNext = (selectedValue) => {
-    setProfile(p => ({ ...p, [currentStepData.field]: selectedValue }));
-    if (step < steps.length - 1) {
-      setStep(step + 1);
-    } else {
-      // On the final step, set the assessed flag and the selected mode
-      setProfile(p => ({ ...p, assessed: true, mode: selectedValue }));
-    }
-  };
-  
-  const handleBack = () => {
-    if (step > 0) {
-      setStep(step - 1);
-    }
+  // Data for Student section
+  const studentData = {
+    classes: ['KS3 (Years 7–9)', 'GCSE (Years 10–11)', 'A-Level (Years 12–13)'],
+    subjects: ['Maths', 'Biology', 'Chemistry', 'Physics', 'Computer Science', 'Geography', 'History', 'English'],
   };
 
-  const progress = ((step + 1) / steps.length) * 100;
+  // Data for professional section
+  const professionalData = {
+    demandCourses: [
+      { id: 'sim_1', title: 'Simulation: Market Analysis', type: 'Simulation' },
+      { id: 'hands_on_1', title: 'Hands-on Project: Project Management', type: 'Hands-on Project' },
+      { id: 'sim_2', title: 'Simulation: Financial Forecasting', type: 'Simulation' },
+      { id: 'hands_on_2', title: 'Hands-on Project: UI/UX Design', type: 'Hands-on Project' },
+    ],
+  };
 
-  return (
-    <section className="min-h-screen flex items-center justify-center py-12">
-      <div className="bg-white dark:bg-gray-800 p-6 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-700 max-w-lg w-full">
-        <div className="pb-2 flex items-center gap-2">
-          <CheckCircle2 className="h-5 w-5" />
-          <h2 className="text-xl font-bold">{currentStepData.title}</h2>
-        </div>
-        <div className="mb-4 text-sm opacity-80">{currentStepData.description}</div>
-        <div className="space-y-3">
-          {currentStepData.options.map((option, i) => (
-            <button
-              key={i}
-              onClick={() => handleNext(option.value)}
-              className="w-full px-6 py-4 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-left font-medium hover:bg-purple-100 dark:hover:bg-purple-900 transition-colors"
-            >
-              {option.label}
-            </button>
-          ))}
-        </div>
-        <div className="mt-6 flex items-center justify-between">
-          <button
-            onClick={handleBack}
-            disabled={step === 0}
-            className={cx(
-              "px-4 py-2 rounded-full font-bold",
-              step === 0 ? "opacity-50 cursor-not-allowed" : "bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600"
-            )}
-          >
-            <ChevronLeft className="h-4 w-4 inline-block mr-1" /> Back
-          </button>
-          <div className="flex-1 mx-4">
-            <div className="h-2 rounded-full bg-gray-200 dark:bg-gray-600">
-              <div className="h-full bg-purple-600 rounded-full transition-all duration-300" style={{ width: `${progress}%` }}></div>
-            </div>
-          </div>
-          <span className="text-sm font-medium opacity-80">
-            Step {step + 1} of {steps.length}
-          </span>
-        </div>
+  const hobbyistData = {
+    microLessons: ['How to brew coffee', 'Basic guitar chords', 'The art of origami'],
+    chatPrompts: ['Ask me anything about hobby projects!', 'What\'s a new skill you want to learn?'],
+  };
+
+  // Function to navigate between views
+  const navigateTo = (view, mode = '') => {
+    setSelectedMode(mode);
+    setCurrentView(view);
+  };
+
+  // Function to handle psychometric test answers
+  const handleAnswer = (questionId, option) => {
+    setTestAnswers(prev => ({
+      ...prev,
+      [questionId]: option,
+    }));
+  };
+
+  // Function to handle the end of the psychometric test
+  const handleTestFinish = () => {
+    // Process answers and navigate to the selected mode's main page
+    // For this demo, we just navigate to the selected mode
+    navigateTo(selectedMode);
+  };
+
+  // Component to render the Home view
+  const HomeView = () => (
+    <div className="flex flex-col items-center justify-center min-h-screen p-4 sm:p-8 bg-gray-50 dark:bg-gray-900 transition-colors duration-300">
+      <div className="text-center w-full max-w-4xl">
+        {/*
+          * User Note: Replace the icon below with your actual company logo.
+          * E.g., <img src="/path/to/your/logo.svg" alt="GenZ.AI Logo" className="h-16 w-16" />
+          */}
+        <Sparkles className="h-16 w-16 mx-auto text-purple-600 dark:text-purple-400 animate-pulse" />
+        <h1 className="text-4xl sm:text-5xl font-extrabold text-gray-900 dark:text-white mb-2 font-inter">GenZ.AI</h1>
+        <p className="text-lg sm:text-xl text-gray-600 dark:text-gray-400 font-inter">Moving minds to an immersive world</p>
       </div>
-    </section>
-  );
-}
-
-// ---------- Student Mode Components ----------
-function StudentMode({ profile, reduceMotion }) {
-  const classNamesList = Object.keys(UK_CLASSES);
-  const [klass, setKlass] = useState(classNamesList[0]);
-  const [subject, setSubject] = useState(UK_CLASSES[classNamesList[0]].subjects[0]);
-  const [question, setQuestion] = useState("");
-  const [progress, setProgress] = useState(0);
-  const [explain, setExplain] = useState("");
-
-  useEffect(() => {
-    setSubject(UK_CLASSES[klass].subjects[0]);
-    setExplain("");
-    setProgress(0);
-  }, [klass]);
-
-  async function ask() {
-    const goal = (UK_CLASSES[klass].objectives[subject] || [])[0] || "Understand the topic";
-    const raw = await demoAnswer(`(${profile.tone} tone, ${profile.pace} pace) ${subject}: ${question}. Learning goal: ${goal}`);
-    setExplain(transformExplanation(raw, profile.style));
-    setProgress(p => Math.min(100, p + 40));
-    setQuestion("");
-  }
-
-  return (
-    <section className="mt-6 grid gap-6 md:grid-cols-3">
-      <div className="md:col-span-2">
-        <div className="bg-white dark:bg-gray-800 p-6 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-700">
-          <div className="pb-2">
-            <h2 className="text-2xl font-bold flex items-center gap-2">
-              <BookOpenCheck className="h-5 w-5" /> Student – Class & Subject
-            </h2>
-          </div>
-          <div className="space-y-3">
-            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2">
-              <div>
-                <div className="text-sm font-medium">Class</div>
-                <select
-                  className="w-full border rounded-lg px-2 py-2 bg-transparent dark:bg-gray-700 mt-1"
-                  value={klass}
-                  onChange={e => setKlass(e.target.value)}
-                >
-                  {classNamesList.map(c => <option key={c} value={c}>{c}</option>)}
-                </select>
-              </div>
-              <div>
-                <div className="text-sm font-medium">Subject</div>
-                <select
-                  className="w-full border rounded-lg px-2 py-2 bg-transparent dark:bg-gray-700 mt-1"
-                  value={subject}
-                  onChange={e => setSubject(e.target.value)}
-                >
-                  {UK_CLASSES[klass].subjects.map(s => <option key={s} value={s}>{s}</option>)}
-                </select>
-              </div>
-              <div className="flex items-end">
-                <div className="w-full h-2 rounded-full bg-gray-200 dark:bg-gray-600">
-                  <div className="h-full bg-purple-600 rounded-full" style={{ width: `${progress}%` }}></div>
-                </div>
-              </div>
-            </div>
-            <div className="flex flex-col sm:flex-row gap-2">
-              <input
-                type="text"
-                placeholder={`Ask a ${subject} question`}
-                className="w-full px-4 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700"
-                value={question}
-                onChange={e => setQuestion(e.target.value)}
-              />
-              <button
-                onClick={ask}
-                className="bg-purple-600 text-white px-6 py-3 rounded-full font-bold shadow-md hover:bg-purple-700 transition-colors w-full sm:w-auto"
-              >
-                <Sparkles className="h-4 w-4 inline-block mr-1" /> Explain
-              </button>
-            </div>
-            {explain && (
-              <pre className={cx(
-                "whitespace-pre-wrap text-sm border rounded-lg p-3 bg-gray-100 dark:bg-gray-700",
-                reduceMotion ? "" : "animate-in fade-in duration-300"
-              )}>
-                {explain}
-              </pre>
-            )}
-          </div>
-        </div>
-      </div>
-      <div>
-        <div className="bg-white dark:bg-gray-800 p-6 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-700">
-          <div className="pb-2">
-            <h3 className="text-xl font-bold">Tips</h3>
-          </div>
-          <div className="text-sm opacity-80">
-            Switch class/subject, ask follow‑ups, and try again until it makes sense. The aim is your understanding, not dependence on AI.
-          </div>
-        </div>
-      </div>
-    </section>
-  );
-}
-
-// ---------- Professional Mode Components ----------
-function ProfessionalMode({ profile }) {
-  return (
-    <section className="mt-6 grid gap-6 md:grid-cols-2">
-      <ATSTailor profile={profile} />
-      <JobSearchDemo />
-    </section>
-  );
-}
-
-function ATSTailor({ profile }) {
-  const [cv, setCv] = useState("");
-  const [jd, setJd] = useState("");
-  const [score, setScore] = useState(null);
-  const [suggestions, setSuggestions] = useState([]);
-  
-  function tailor() {
-    const { score, top } = scoreCVvsJD(cv, jd);
-    setScore(score);
-    setSuggestions(top);
-  }
-
-  function renderATS() {
-    const lines = cv.split(/\n+/).map(l => l.trim()).filter(Boolean);
-    return lines.map(l => {
-      const hit = suggestions.find(k => l.toLowerCase().includes(k));
-      return hit ? `• ${l} — (${hit})` : `• ${l}`;
-    }).join("\n");
-  }
-
-  return (
-    <div className="bg-white dark:bg-gray-800 p-6 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-700">
-      <div className="pb-2">
-        <h2 className="text-2xl font-bold flex items-center gap-2">
-          <FileText className="h-5 w-5" /> CV → ATS Tailoring
-        </h2>
-      </div>
-      <div className="space-y-3">
-        <textarea
-          className="w-full p-4 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 h-36 resize-y"
-          placeholder="Paste your CV (text)"
-          value={cv}
-          onChange={e => setCv(e.target.value)}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 sm:gap-8 mt-8 sm:mt-16 w-full max-w-4xl">
+        <ModeCard
+          icon={<GraduationCap className="h-10 w-10 text-blue-600" />}
+          title="Student"
+          description="Get personalized learning with smart explanations and exercises."
+          onClick={() => navigateTo('test', 'student')}
         />
-        <textarea
-          className="w-full p-4 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 h-28 resize-y"
-          placeholder="Paste Job Description"
-          value={jd}
-          onChange={e => setJd(e.target.value)}
+        <ModeCard
+          icon={<Briefcase className="h-10 w-10 text-green-600" />}
+          title="Professional"
+          description="Tailor your CV and find jobs tailored to your skills."
+          onClick={() => navigateTo('test', 'professional')}
         />
-        <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3">
-          <button
-            onClick={tailor}
-            className="bg-purple-600 text-white px-6 py-3 rounded-full font-bold shadow-md hover:bg-purple-700 transition-colors w-full sm:w-auto"
-          >
-            <Sparkles className="h-4 w-4 inline-block mr-2" /> Tailor
-          </button>
-          {score != null && (
-            <div className="flex items-center gap-3 mt-2 sm:mt-0 w-full sm:w-auto">
-              <span className="text-sm">Match:</span>
-              <div className="w-full sm:w-40 h-2 rounded-full bg-gray-200 dark:bg-gray-600">
-                <div className="h-full bg-purple-600 rounded-full transition-all duration-300" style={{ width: `${score}%` }}></div>
-              </div>
-              <span className="text-sm font-medium">{score}%</span>
-            </div>
-          )}
-        </div>
-        {score != null && (
-          <div className="grid md:grid-cols-2 gap-3">
-            <div>
-              <div className="text-sm font-medium mb-1">Top JD keywords</div>
-              <div className="flex flex-wrap gap-1">
-                {suggestions.slice(0, 10).map((s, i) => (
-                  <span key={i} className="px-2 py-1 bg-gray-200 dark:bg-gray-700 rounded-full text-xs font-medium">
-                    {s}
-                  </span>
-                ))}
-              </div>
-            </div>
-            <div>
-              <div className="text-sm font-medium mb-1">ATS‑ready bullets</div>
-              <pre className="text-xs whitespace-pre-wrap border border-gray-300 dark:border-gray-600 rounded-lg p-2 bg-gray-100 dark:bg-gray-700">{renderATS()}</pre>
-            </div>
-          </div>
-        )}
+        <ModeCard
+          icon={<Smile className="h-10 w-10 text-yellow-600" />}
+          title="Hobbyist"
+          description="Explore your passions with free chat and micro-lessons."
+          onClick={() => navigateTo('test', 'hobbyist')}
+        />
       </div>
     </div>
   );
-}
 
-function JobSearchDemo() {
-  const [keyword, setKeyword] = useState("data analyst");
-  const [location, setLocation] = useState("UK");
-  const [jobs, setJobs] = useState([]);
-
-  // Demo: client‑side fake results.
-  function search() {
-    const sample = [
-      { title: "Graduate Data Analyst", company: "NHS Trust", where: "London", link: "#" },
-      { title: "Junior BI Analyst", company: "RetailCo", where: "Manchester", link: "#" },
-      { title: "Operations Analyst", company: "Gov Dept", where: "Leeds", link: "#" },
-    ];
-    const k = keyword.toLowerCase();
-    const l = location.toLowerCase();
-    setJobs(
-      sample.filter(j =>
-        j.title.toLowerCase().includes(k) || j.company.toLowerCase().includes(k)
-      ).filter(j =>
-        l === "uk" || j.where.toLowerCase().includes(l)
-      )
-    );
-  }
-
-  return (
-    <div className="bg-white dark:bg-gray-800 p-6 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-700">
-      <div className="pb-2">
-        <h2 className="text-2xl font-bold flex items-center gap-2">
-          <Search className="h-5 w-5" /> Job Search (demo)
-        </h2>
+  // Reusable component for the mode cards on the home screen
+  const ModeCard = ({ icon, title, description, onClick }) => (
+    <div
+      onClick={onClick}
+      className="bg-white dark:bg-gray-800 p-6 sm:p-8 rounded-2xl shadow-lg hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1 cursor-pointer border border-gray-200 dark:border-gray-700"
+    >
+      <div className="flex items-center justify-center mb-4">
+        {icon}
       </div>
-      <div className="space-y-3">
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
-          <input
-            type="text"
-            value={keyword}
-            onChange={e => setKeyword(e.target.value)}
-            placeholder="Keyword"
-            className="sm:col-span-2 px-4 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700"
-          />
-          <input
-            type="text"
-            value={location}
-            onChange={e => setLocation(e.target.value)}
-            placeholder="Location"
-            className="px-4 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700"
-          />
-          <button
-            onClick={search}
-            className="col-span-1 sm:col-span-3 bg-purple-600 text-white px-6 py-3 rounded-full font-bold shadow-md hover:bg-purple-700 transition-colors"
-          >
-            Search
-          </button>
-        </div>
-        <div className="space-y-2">
-          {jobs.map((j, i) => (
-            <div key={i} className="p-3 rounded-lg border border-gray-300 dark:border-gray-600 bg-gray-100 dark:bg-gray-700">
-              <div className="font-medium">{j.title}</div>
-              <div className="text-sm opacity-80">{j.company} — {j.where}</div>
-              <a className="text-sm underline text-purple-600" href={j.link} target="_blank" rel="noreferrer">
-                View
-              </a>
-            </div>
-          ))}
-          {jobs.length === 0 && (
-            <div className="text-sm opacity-70">
-              Try a search to see demo results. In production, connect to an open API via your backend.
-            </div>
-          )}
-        </div>
-      </div>
+      <h2 className="text-xl sm:text-2xl font-semibold text-gray-900 dark:text-white text-center mb-2">{title}</h2>
+      <p className="text-gray-500 dark:text-gray-400 text-center text-sm">{description}</p>
     </div>
   );
-}
 
-// ---------- Hobbyist Component ----------
-function HobbyMode({ profile }) {
-  const [q, setQ] = useState("");
-  const [log, setLog] = useState([{ who: "bot", text: "Hi! What are you curious about today?" }]);
+  // Component for the psychometric test
+  const PsychometricTestView = () => (
+    <div className="flex flex-col items-center justify-center min-h-screen p-4 sm:p-8 bg-gray-50 dark:bg-gray-900 transition-colors duration-300">
+      <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl p-6 sm:p-8 w-full max-w-2xl">
+        <h2 className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-white mb-4 sm:mb-6 text-center">Quick Psychometric Test</h2>
+        <p className="text-gray-600 dark:text-gray-400 text-center mb-6 sm:mb-8 text-sm sm:text-base">This will help us personalize your experience.</p>
 
-  async function send() {
-    const a = await demoAnswer(`(${profile.tone} tone, ${profile.pace} pace) ${q}`);
-    setLog(l => [...l, { who: "you", text: q }, { who: "bot", text: a }]);
-    setQ("");
-  }
-
-  return (
-    <section className="mt-6 grid gap-6 md:grid-cols-3">
-      <div className="md:col-span-2">
-        <div className="bg-white dark:bg-gray-800 p-6 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-700">
-          <div className="pb-2">
-            <h2 className="text-2xl font-bold flex items-center gap-2">
-              <MessagesSquare className="h-5 w-5" /> Hobbyist – Free Chat
-            </h2>
-          </div>
-          <div className="space-y-3">
-            <div className="flex flex-col sm:flex-row gap-2">
-              <input
-                type="text"
-                placeholder="Ask anything"
-                className="w-full px-4 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700"
-                value={q}
-                onChange={e => setQ(e.target.value)}
-                onKeyDown={e => { if (e.key === 'Enter') send(); }}
-              />
-              <button
-                onClick={send}
-                className="bg-purple-600 text-white px-6 py-3 rounded-full font-bold shadow-md hover:bg-purple-700 transition-colors w-full sm:w-auto"
-              >
-                Send
-              </button>
-            </div>
-            <div className="mt-3 space-y-2 max-h-80 overflow-y-auto p-2">
-              {log.map((m, i) => (
-                <div
-                  key={i}
-                  className={cx(
-                    "text-sm p-3 rounded-lg",
-                    m.who === "you"
-                      ? "bg-purple-100 dark:bg-purple-900/30 self-end"
-                      : "bg-green-100 dark:bg-green-900/30"
-                  )}
+        {psychometricQuestions[currentTestQuestion] && (
+          <div className="mb-6 sm:mb-8 animate-fade-in">
+            <p className="text-base sm:text-lg text-gray-800 dark:text-gray-200 font-semibold mb-4">{psychometricQuestions[currentTestQuestion].text}</p>
+            <div className="flex flex-col space-y-3 sm:space-y-4">
+              {psychometricQuestions[currentTestQuestion].options.map((option, index) => (
+                <button
+                  key={index}
+                  onClick={() => handleAnswer(psychometricQuestions[currentTestQuestion].id, option)}
+                  className={`flex items-center justify-between p-3 sm:p-4 rounded-xl border-2 transition-all duration-200 font-medium text-sm sm:text-base
+                    ${testAnswers[psychometricQuestions[currentTestQuestion].id] === option
+                      ? 'bg-purple-100 text-purple-700 border-purple-500 dark:bg-purple-900 dark:text-purple-300'
+                      : 'bg-gray-100 text-gray-800 border-gray-200 hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-200 dark:border-gray-600 dark:hover:bg-gray-600'
+                    }`}
                 >
-                  {m.text}
-                </div>
+                  <span>{option}</span>
+                  {testAnswers[psychometricQuestions[currentTestQuestion].id] === option && <Check className="h-5 w-5" />}
+                </button>
               ))}
             </div>
           </div>
+        )}
+
+        <div className="flex justify-between items-center mt-6 sm:mt-8">
+          <button
+            onClick={() => setCurrentTestQuestion(prev => prev - 1)}
+            disabled={currentTestQuestion === 0}
+            className="flex items-center px-4 py-2 rounded-xl text-gray-700 dark:text-gray-300 bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors duration-200 text-sm"
+          >
+            <ArrowLeft className="h-5 w-5 mr-2" />
+            Previous
+          </button>
+          {currentTestQuestion < psychometricQuestions.length - 1 ? (
+            <button
+              onClick={() => setCurrentTestQuestion(prev => prev + 1)}
+              disabled={!testAnswers[psychometricQuestions[currentTestQuestion]?.id]}
+              className="flex items-center px-6 py-3 rounded-xl bg-purple-600 text-white font-semibold hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors duration-200 shadow-md text-sm sm:text-base"
+            >
+              Next
+              <ArrowRight className="h-5 w-5 ml-2" />
+            </button>
+          ) : (
+            <button
+              onClick={handleTestFinish}
+              disabled={!testAnswers[psychometricQuestions[currentTestQuestion]?.id]}
+              className="flex items-center px-6 py-3 rounded-xl bg-purple-600 text-white font-semibold hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors duration-200 shadow-md text-sm sm:text-base"
+            >
+              Finish Test
+              <Check className="h-5 w-5 ml-2" />
+            </button>
+          )}
         </div>
       </div>
-      <div>
-        <div className="bg-white dark:bg-gray-800 p-6 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-700">
-          <div className="pb-2">
-            <h3 className="text-xl font-bold">Micro‑lesson</h3>
-          </div>
-          <div className="text-sm opacity-90">
-            Hook this to your content pipeline to auto‑generate 90‑second mini lessons with a quick quiz.
-          </div>
-        </div>
-      </div>
-    </section>
+    </div>
   );
-}
+
+  // Component to render the Student mode view
+  const StudentView = () => {
+    const [selectedClass, setSelectedClass] = useState(null);
+    const [selectedSubject, setSelectedSubject] = useState(null);
+    const [specificTopic, setSpecificTopic] = useState('');
+    const [explanation, setExplanation] = useState('');
+
+    // Function to generate a placeholder explanation
+    const getPlaceholderExplanation = (subject, learningStyle) => {
+      const intro = `This is a demo explanation for **${subject}** based on your learning profile.`;
+      const body = `We've identified that you are a **${learningStyle === 'Visual Aids' ? 'visual learner' : 'text-based learner'}**.
+        Therefore, this explanation would be tailored to include relevant diagrams,
+        analogies, or detailed text-based summaries to match your style.`;
+      const closing = `For this MVP, this explanation shows how our personalization engine would work.
+        In a full version, we would generate a comprehensive and interactive explanation here.`;
+      return `${intro}\n\n${body}\n\n${closing}`;
+    };
+
+    // New function to generate a personalized explanation for a specific topic
+    const getPersonalizedTopicExplanation = (subject, topic, learningStyle) => {
+      const intro = `Here is a personalized explanation for **${topic}** in **${subject}**, designed for you.`;
+      let body;
+      if (learningStyle === 'Visual Aids') {
+        body = `As a visual learner, we would use diagrams and step-by-step illustrations to explain this concept. Imagine a flow chart showing the process of photosynthesis, or an animated diagram of a chemical reaction. This text is a placeholder for that visual experience.`;
+      } else {
+        body = `As a text-based learner, we would provide a detailed, structured explanation with clear headings and a summary. We would break down **${topic}** into its core principles and provide a concise, easy-to-read summary to reinforce your understanding.`;
+      }
+      const closing = `This demo demonstrates how GenZ.AI personalizes content based on your profile. A real version would provide a rich, interactive explanation.`;
+      return `${intro}\n\n${body}\n\n${closing}`;
+    };
+
+    // Function to handle topic selection and show placeholder explanation
+    const handleSubjectSelection = (subject) => {
+      setSelectedSubject(subject);
+      setExplanation(''); // Clear previous explanation
+      setSpecificTopic(''); // Clear specific topic input
+    };
+    
+    // Function to handle the specific topic request
+    const handleTopicRequest = () => {
+        if (selectedSubject && specificTopic) {
+            const userLearningStyle = testAnswers[1];
+            const personalizedExplanation = getPersonalizedTopicExplanation(selectedSubject, specificTopic, userLearningStyle);
+            setExplanation(personalizedExplanation);
+        }
+    };
+
+    return (
+      <div className="flex flex-col items-center min-h-screen p-4 sm:p-8 bg-gray-50 dark:bg-gray-900 transition-colors duration-300">
+        <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl p-6 sm:p-8 w-full max-w-4xl">
+          {/* Back button */}
+          <button
+            onClick={() => navigateTo('home')}
+            className="flex items-center mb-6 px-4 py-2 rounded-xl text-gray-700 dark:text-gray-300 bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors duration-200 text-sm"
+          >
+            <ArrowLeft className="h-5 w-5 mr-2" />
+            Go Back
+          </button>
+          <h2 className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-white mb-4 sm:mb-6 text-center">Student – Class & Subject</h2>
+          <p className="text-gray-600 dark:text-gray-400 text-center mb-6 sm:mb-8 text-sm sm:text-base">
+            Select a class and a subject to see how our personalized learning works.
+          </p>
+
+          {/* Class Selection */}
+          <div className="mb-6 sm:mb-8">
+            <h3 className="text-lg sm:text-xl font-bold text-gray-900 dark:text-white mb-2">Class</h3>
+            <p className="text-xs sm:text-sm text-gray-500 dark:text-gray-400 mb-4">
+              The class levels are aligned with the UK academic system (England, Wales, and Northern Ireland). For example, **GCSE covers Years 10-11 for students aged 14-16**, marking the end of compulsory secondary education.
+            </p>
+            <div className="flex flex-wrap justify-center sm:justify-start gap-3 sm:gap-4">
+              {studentData.classes.map((classLevel) => (
+                <button
+                  key={classLevel}
+                  onClick={() => setSelectedClass(classLevel)}
+                  className={`px-4 sm:px-6 py-2 sm:py-3 rounded-xl font-semibold text-sm sm:text-base transition-colors duration-200
+                    ${selectedClass === classLevel
+                      ? 'bg-blue-600 text-white shadow-lg'
+                      : 'bg-gray-200 text-gray-800 hover:bg-blue-100 dark:bg-gray-700 dark:text-gray-200 dark:hover:bg-blue-900'}`
+                  }
+                >
+                  {classLevel}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Subject Selection */}
+          {selectedClass && (
+            <div className="mb-6 sm:mb-8">
+              <h3 className="text-lg sm:text-xl font-bold text-gray-900 dark:text-white mb-4">Subject</h3>
+              <div className="flex flex-wrap justify-center sm:justify-start gap-3 sm:gap-4">
+                {studentData.subjects.map((subject) => (
+                  <button
+                    key={subject}
+                    onClick={() => handleSubjectSelection(subject)}
+                    className={`px-4 sm:px-6 py-2 sm:py-3 rounded-xl font-semibold text-sm sm:text-base transition-colors duration-200
+                      ${selectedSubject === subject
+                        ? 'bg-green-600 text-white shadow-lg'
+                        : 'bg-gray-200 text-gray-800 hover:bg-green-100 dark:bg-gray-700 dark:text-gray-200 dark:hover:bg-green-900'}`
+                    }
+                  >
+                    {subject}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+          
+          {/* Specific Topic Input */}
+          {selectedSubject && (
+            <div className="mb-6 sm:mb-8">
+                <h3 className="text-lg sm:text-xl font-bold text-gray-900 dark:text-white mb-4">Specific Topic</h3>
+                <div className="flex flex-col sm:flex-row gap-3">
+                    <input
+                        type="text"
+                        value={specificTopic}
+                        onChange={(e) => setSpecificTopic(e.target.value)}
+                        placeholder={`e.g., The Cell Cycle in ${selectedSubject}`}
+                        className="flex-grow p-3 rounded-xl border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-purple-500 text-sm"
+                    />
+                    <button
+                        onClick={handleTopicRequest}
+                        disabled={!specificTopic}
+                        className="px-4 sm:px-6 py-2 sm:py-3 rounded-xl bg-purple-600 text-white font-semibold hover:bg-purple-700 transition-colors duration-200 text-sm disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                        Get Explanation
+                    </button>
+                </div>
+            </div>
+          )}
+
+          {/* Explanation Section */}
+          {explanation && (
+            <div className="bg-gray-100 dark:bg-gray-700 p-4 sm:p-6 rounded-2xl mb-8">
+              <h3 className="text-lg sm:text-xl font-bold text-gray-900 dark:text-white mb-4">Explanation</h3>
+              <div
+                className="prose dark:prose-invert text-gray-800 dark:text-gray-200 leading-relaxed text-sm sm:text-base"
+                dangerouslySetInnerHTML={{ __html: explanation.replace(/\n/g, '<br />') }}
+              />
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  };
+
+  // Component to render the Professional mode view
+  const ProfessionalView = () => {
+    const [selectedCourse, setSelectedCourse] = useState(null);
+    const [courseExplanation, setCourseExplanation] = useState('');
+
+    const getCourseExplanation = (course, problemSolvingStyle) => {
+      const courseTitle = course.title;
+      const intro = `This is a demo explanation for **${courseTitle}** tailored to your problem-solving style.`;
+      const body = `We've identified that you prefer a **${problemSolvingStyle === 'Step-by-step guide' ? 'structured, step-by-step approach' : 'hands-on, experimental approach'}**.
+        Therefore, this course would be designed with that in mind, providing clear steps or interactive projects to help you learn.`;
+      const closing = `For this MVP, this explanation shows how our personalization would work.
+        In a full version, we would provide the full interactive course material here.`;
+      return `${intro}\n\n${body}\n\n${closing}`;
+    };
+
+    const handleCourseSelection = (course) => {
+      setSelectedCourse(course);
+      const userProblemSolvingStyle = testAnswers[2];
+      setCourseExplanation(getCourseExplanation(course, userProblemSolvingStyle));
+    };
+
+    return (
+      <div className="flex flex-col items-center min-h-screen p-4 sm:p-8 bg-gray-50 dark:bg-gray-900 transition-colors duration-300">
+        <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl p-6 sm:p-8 w-full max-w-4xl">
+          {/* Back button */}
+          <button
+            onClick={() => navigateTo('home')}
+            className="flex items-center mb-6 px-4 py-2 rounded-xl text-gray-700 dark:text-gray-300 bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors duration-200 text-sm"
+          >
+            <ArrowLeft className="h-5 w-5 mr-2" />
+            Go Back
+          </button>
+          <h2 className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-white mb-4 sm:mb-6 text-center">Professional Mode</h2>
+          <p className="text-gray-600 dark:text-gray-400 text-center mb-6 sm:mb-8 text-sm sm:text-base">
+            Enhance your career with personalized tools and resources.
+          </p>
+
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 sm:gap-8 mb-6 sm:mb-8">
+            {/* CV Tailoring Section */}
+            <div className="bg-gray-100 dark:bg-gray-700 p-4 sm:p-6 rounded-2xl">
+              <h3 className="text-lg sm:text-xl font-bold text-gray-900 dark:text-white mb-4 flex items-center"><FileText className="mr-2 h-6 w-6" /> CV → ATS Tailoring</h3>
+              <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">Paste your CV and a Job Description to get started.</p>
+              <textarea
+                className="w-full h-32 p-3 rounded-xl border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white resize-none mb-4 text-sm"
+                placeholder="Paste your CV here..."
+              ></textarea>
+              <textarea
+                className="w-full h-32 p-3 rounded-xl border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white resize-none text-sm"
+                placeholder="Paste the Job Description here..."
+              ></textarea>
+              <button className="mt-4 w-full px-4 sm:px-6 py-2 sm:py-3 rounded-xl bg-green-600 text-white font-semibold hover:bg-green-700 transition-colors duration-200 text-sm">
+                Tailor
+              </button>
+            </div>
+
+            {/* Job Search Demo */}
+            <div className="bg-gray-100 dark:bg-gray-700 p-4 sm:p-6 rounded-2xl">
+              <h3 className="text-lg sm:text-xl font-bold text-gray-900 dark:text-white mb-4 flex items-center"><Search className="mr-2 h-6 w-6" /> Job Search (demo)</h3>
+              <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">Try a search to see demo results. In production, connect to an open API via your backend.</p>
+              <input
+                type="text"
+                className="w-full p-3 rounded-xl border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-purple-500 text-sm"
+                placeholder="Search..."
+              />
+              <button className="mt-4 w-full px-4 sm:px-6 py-2 sm:py-3 rounded-xl bg-purple-600 text-white font-semibold hover:bg-purple-700 transition-colors duration-200 text-sm">
+                Search
+              </button>
+            </div>
+          </div>
+
+          {/* Demand Courses Section */}
+          <div className="bg-white dark:bg-gray-800 p-4 sm:p-6 rounded-2xl shadow-lg border border-gray-200 dark:border-gray-700">
+            <h3 className="text-lg sm:text-xl font-bold text-gray-900 dark:text-white mb-4 flex items-center"><BriefcaseMedical className="mr-2 h-6 w-6" /> Demand Courses for Learning</h3>
+            <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">Select a course to see a personalized explanation based on your learning style.</p>
+            <div className="space-y-3 sm:space-y-4">
+              {professionalData.demandCourses.map((course) => (
+                <button
+                  key={course.id}
+                  onClick={() => handleCourseSelection(course)}
+                  className={`flex items-center p-3 sm:p-4 rounded-xl border-2 transition-all duration-200 font-medium w-full text-left text-sm sm:text-base
+                    ${selectedCourse?.id === course.id
+                      ? 'bg-purple-100 text-purple-700 border-purple-500 dark:bg-purple-900 dark:text-purple-300'
+                      : 'bg-gray-100 text-gray-800 border-gray-200 hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-200 dark:border-gray-600 dark:hover:bg-gray-600'
+                    }`}
+                >
+                  {course.title}
+                </button>
+              ))}
+            </div>
+            {courseExplanation && (
+              <div className="bg-gray-100 dark:bg-gray-700 p-4 sm:p-6 rounded-2xl mt-6 sm:mt-8">
+                <h3 className="text-lg sm:text-xl font-bold text-gray-900 dark:text-white mb-4">Explanation</h3>
+                <div
+                  className="prose dark:prose-invert text-gray-800 dark:text-gray-200 leading-relaxed text-sm sm:text-base"
+                  dangerouslySetInnerHTML={{ __html: courseExplanation.replace(/\n/g, '<br />') }}
+                />
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  // Component for the Hobbyist mode view
+  const HobbyistView = () => (
+    <div className="flex flex-col items-center min-h-screen p-4 sm:p-8 bg-gray-50 dark:bg-gray-900 transition-colors duration-300">
+      <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl p-6 sm:p-8 w-full max-w-4xl">
+        {/* Back button */}
+        <button
+          onClick={() => navigateTo('home')}
+          className="flex items-center mb-6 px-4 py-2 rounded-xl text-gray-700 dark:text-gray-300 bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors duration-200 text-sm"
+        >
+          <ArrowLeft className="h-5 w-5 mr-2" />
+          Go Back
+        </button>
+        <h2 className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-white mb-4 sm:mb-6 text-center">Hobbyist Mode</h2>
+        <p className="text-gray-600 dark:text-gray-400 text-center mb-6 sm:mb-8 text-sm sm:text-base">
+          Explore your interests with free chat and micro-lessons.
+        </p>
+
+        {/* Free Chat Section */}
+        <div className="bg-gray-100 dark:bg-gray-700 p-4 sm:p-6 rounded-2xl mb-6 sm:mb-8">
+          <h3 className="text-lg sm:text-xl font-bold text-gray-900 dark:text-white mb-4">Free Chat</h3>
+          <div className="h-48 overflow-y-auto mb-4 p-4 rounded-xl bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600">
+            {/* Sample chat messages */}
+            <div className="flex flex-col space-y-2">
+              <div className="bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200 p-3 rounded-xl self-start max-w-xs text-sm">
+                Hi GenZ.AI, I want to learn a new skill!
+              </div>
+              <div className="bg-gray-200 dark:bg-gray-600 text-gray-800 dark:text-gray-200 p-3 rounded-xl self-end max-w-xs text-sm">
+                That's awesome! What are you thinking of?
+              </div>
+            </div>
+          </div>
+          <div className="flex">
+            <input
+              type="text"
+              className="flex-grow p-3 rounded-l-xl border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-purple-500 text-sm"
+              placeholder="Start chatting..."
+            />
+            <button className="px-4 py-2 sm:px-6 sm:py-3 rounded-r-xl bg-purple-600 text-white font-semibold hover:bg-purple-700 transition-colors duration-200 text-sm">
+              Send
+            </button>
+          </div>
+        </div>
+
+        {/* Micro-lessons Section */}
+        <div className="bg-white dark:bg-gray-800 p-4 sm:p-6 rounded-2xl shadow-lg border border-gray-200 dark:border-gray-700">
+          <h3 className="text-lg sm:text-xl font-bold text-gray-900 dark:text-white mb-4">Micro-lessons</h3>
+          <div className="space-y-3 sm:space-y-4">
+            {hobbyistData.microLessons.map((lesson, index) => (
+              <div key={index} className="p-3 sm:p-4 rounded-xl bg-gray-100 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 cursor-pointer hover:shadow-md transition-shadow duration-200 text-sm sm:text-base">
+                <p className="font-semibold text-gray-900 dark:text-white">{lesson}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+
+  // Modal component for accessibility settings
+  const AccessibilityMenu = () => (
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+      <div className="bg-white dark:bg-gray-800 rounded-3xl p-6 sm:p-8 w-full max-w-md shadow-2xl transform scale-100 transition-transform duration-300">
+        <div className="flex justify-between items-center mb-6">
+          <h3 className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white">Accessibility Settings</h3>
+          <button onClick={() => setShowAccessibilityMenu(false)} className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300">
+            <X className="h-6 w-6" />
+          </button>
+        </div>
+        <div className="space-y-6">
+          <AccessibilityToggle
+            label="Dark Mode"
+            checked={accessibility.darkMode}
+            onChange={() => setAccessibility(prev => ({ ...prev, darkMode: !prev.darkMode }))}
+          />
+          <AccessibilityToggle
+            label="High Contrast"
+            checked={accessibility.highContrast}
+            onChange={() => setAccessibility(prev => ({ ...prev, highContrast: !prev.highContrast }))}
+          />
+          <AccessibilityToggle
+            label="Dyslexia Friendly Font"
+            checked={accessibility.dyslexiaFriendly}
+            onChange={() => setAccessibility(prev => ({ ...prev, dyslexiaFriendly: !prev.dyslexiaFriendly }))}
+          />
+          <AccessibilityToggle
+            label="Reduce Motion"
+            checked={accessibility.reduceMotion}
+            onChange={() => setAccessibility(prev => ({ ...prev, reduceMotion: !prev.reduceMotion }))}
+          />
+        </div>
+      </div>
+    </div>
+  );
+
+  // Reusable toggle switch component for accessibility settings
+  const AccessibilityToggle = ({ label, checked, onChange }) => (
+    <div className="flex items-center justify-between">
+      <span className="text-gray-700 dark:text-gray-300 font-medium text-sm sm:text-base">{label}</span>
+      <label className="relative inline-flex items-center cursor-pointer">
+        <input type="checkbox" checked={checked} onChange={onChange} className="sr-only peer" />
+        <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-purple-300 dark:peer-focus:ring-purple-800 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-purple-600"></div>
+      </label>
+    </div>
+  );
+
+  // Main render logic based on the current view
+  const renderView = () => {
+    switch (currentView) {
+      case 'home':
+        return <HomeView />;
+      case 'test':
+        return <PsychometricTestView />;
+      case 'student':
+        return <StudentView />;
+      case 'professional':
+        return <ProfessionalView />;
+      case 'hobbyist':
+        return <HobbyistView />;
+      default:
+        return <HomeView />;
+    }
+  };
+
+  return (
+    // The main container with conditional classes for accessibility
+    <div className="font-sans antialiased min-h-screen relative overflow-hidden">
+      <style>{`
+        /* Custom CSS for accessibility and animations */
+        .high-contrast {
+          background-color: white !important;
+          color: black !important;
+        }
+        .high-contrast .dark\\:text-white { color: black !important; }
+        .high-contrast .dark\\:bg-gray-900 { background-color: white !important; }
+        .high-contrast .dark\\:bg-gray-800 { background-color: white !important; }
+        .high-contrast .dark\\:bg-gray-700 { background-color: #f1f1f1 !important; }
+        .high-contrast .dark\\:bg-gray-600 { background-color: #e2e2e2 !important; }
+        .high-contrast .dark\\:border-gray-700 { border-color: black !important; }
+        .high-contrast .dark\\:border-gray-600 { border-color: black !important; }
+        .high-contrast .dark\\:text-gray-400 { color: black !important; }
+        .high-contrast .dark\\:hover\\:bg-gray-600 { background-color: #e2e2e2 !important; }
+        .high-contrast .text-gray-900 { color: black !important; }
+        .high-contrast .text-gray-800 { color: black !important; }
+        .high-contrast .text-gray-700 { color: black !important; }
+        .high-contrast .text-gray-600 { color: black !important; }
+        .high-contrast .text-gray-500 { color: black !important; }
+        .high-contrast .bg-white { background-color: white !important; }
+        .high-contrast .bg-gray-50 { background-color: white !important; }
+        .high-contrast .bg-gray-100 { background-color: #f1f1f1 !important; }
+        .high-contrast button { border-color: black !important; }
+        .high-contrast button.bg-purple-600 { background-color: #555 !important; }
+        .high-contrast button.bg-green-600 { background-color: #555 !important; }
+        .high-contrast button.bg-blue-600 { background-color: #555 !important; }
+        .high-contrast svg { color: #333 !important; }
+
+        .dyslexia-friendly * {
+          font-family: 'Open Sans', 'Arial', sans-serif !important;
+        }
+
+        .reduce-motion * {
+          transition: none !important;
+          animation: none !important;
+        }
+
+        /* Fade-in animation for psychometric questions */
+        @keyframes fade-in {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .animate-fade-in {
+            animation: fade-in 0.5s ease-out;
+        }
+      `}</style>
+
+      {/* Accessibility settings button */}
+      <div className="fixed top-4 right-4 z-40">
+        <button
+          onClick={() => setShowAccessibilityMenu(true)}
+          className="p-3 rounded-full bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors duration-200 shadow-md"
+          title="Accessibility Settings"
+        >
+          <Settings className="h-6 w-6" />
+        </button>
+      </div>
+
+      {showAccessibilityMenu && <AccessibilityMenu />}
+
+      {renderView()}
+    </div>
+  );
+};
+
+export default App;
