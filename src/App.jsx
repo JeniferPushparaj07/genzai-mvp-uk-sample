@@ -1,263 +1,807 @@
-import React, { useState } from 'react';
-import { Leaf, User, Brain, GraduationCap, Briefcase, Sparkles, Sun, Moon } from 'lucide-react';
+import React, { useEffect, useRef, useState } from 'react';
+import {
+  Brain,
+  GraduationCap,
+  Briefcase,
+  Sparkles,
+  Gamepad2,
+  Upload,
+  Accessibility,
+  Moon,
+  Sun,
+  ShieldCheck,
+  BookOpenCheck,
+  MessagesSquare,
+  CheckCircle2,
+  FileText,
+  Search,
+} from 'lucide-react';
 
-// The main application component
-export default function App() {
-  // State to manage the current screen being displayed
-  const [screen, setScreen] = useState('home');
-  // State to manage the user's progress through the psychometric test
-  const [testAnswers, setTestAnswers] = useState({});
-  // State to manage the user's current gamified lesson
-  const [lessonStage, setLessonStage] = useState(0);
-  // State for dark/light mode toggle
-  const [isDarkMode, setIsDarkMode] = useState(false);
-  // State for the mock answer from the AI model
-  const [aiResponse, setAiResponse] = useState('');
+// A simple utility to concatenate class names
+const cx = (...xs) => xs.filter(Boolean).join(' ');
 
-  // Psychometric test questions
-  const psychometricQuestions = [
-    {
-      id: 'q1',
-      question: 'How do you prefer to learn new concepts?',
-      options: ['By watching videos', 'By reading articles', 'By doing hands-on projects'],
-    },
-    {
-      id: 'q2',
-      question: 'Which of the following activities do you enjoy most?',
-      options: ['Solving puzzles and brain games', 'Listening to stories or podcasts', 'Creating art or visual diagrams'],
-    },
-    {
-      id: 'q3',
-      question: 'What motivates you to learn?',
-      options: ['Feeling a sense of accomplishment', 'The desire to solve a real-world problem', 'Exploring new ideas and creativity'],
-    },
-  ];
-
-  // Logic for a mock AI explanation (simulates personalized response)
-  const getMockAIExplanation = (subject, learningStyle) => {
-    // A simple switch-case to simulate a personalized response based on learning style
-    switch (learningStyle) {
-      case 'By watching videos':
-        return `Let's visualize this! Think of photosynthesis as a tiny plant factory. The leaves are the solar panels, absorbing light. The roots are the pipes, bringing in water. And the carbon dioxide from the air is the raw material. The factory takes all three and produces sugar (food) and oxygen!`;
-      case 'By reading articles':
-        return `Photosynthesis is the process used by plants, algae, and certain bacteria to convert light energy into chemical energy. This chemical energy is stored in carbohydrate molecules, such as sugars, which are synthesized from carbon dioxide and water. The process is a key component of the global ecosystem, as it produces the oxygen that most life on Earth depends on.`;
-      case 'By doing hands-on projects':
-        return `Let's make this hands-on! Imagine you are a plant. You need to gather three ingredients: water (from a bottle), sunlight (from a lamp), and carbon dioxide (from a balloon). Your goal is to mix them all together in a "leaf" (a bowl) to create sugar cubes (food) and let out oxygen (another balloon)!`;
-      default:
-        return `Let's explain the concept of ${subject} in a simple way.`;
+// A simple hook for persisting state to local storage
+function useLocalStorage(key, init) {
+  const [v, setV] = useState(() => {
+    try {
+      const s = localStorage.getItem(key);
+      return s ? JSON.parse(s) : init;
+    } catch {
+      return init;
     }
-  };
+  });
+  useEffect(() => {
+    try {
+      localStorage.setItem(key, JSON.stringify(v));
+    } catch {}
+  }, [key, v]);
+  return [v, setV];
+}
 
-  // Handles the psychometric test answer submission
-  const handleTestAnswer = (questionId, option) => {
-    const newAnswers = { ...testAnswers, [questionId]: option };
-    setTestAnswers(newAnswers);
-    // Move to the next screen after all questions are answered
-    if (Object.keys(newAnswers).length === psychometricQuestions.length) {
-      setScreen('result');
+// Mock AI response function to simulate an API call
+async function demoAnswer(prompt) {
+  const canned = ["Let's break that down…", "Here’s an analogy…", "A quick summary then an example…"];
+  return `${canned[Math.floor(Math.random() * canned.length)]} ${prompt}`;
+}
+
+// Function to transform an explanation based on the user's chosen style
+function transformExplanation(text, style) {
+  switch (style) {
+    case 'bullets':
+      return `• ${text.replace(/\\.\\s*/g, '\\n• ')}`;
+    case 'steps':
+      return `Step 1→2→3. ${text}`;
+    case 'analogy':
+      return `Imagine a story: ${text}`;
+    default:
+      return `In one sentence: ${text}`;
+  }
+}
+
+// Function to score a CV against a Job Description
+function scoreCVvsJD(cvText, jdText) {
+  const norms = (s) => s.toLowerCase().replace(/[^a-z0-9\\s]/g, '');
+  const cv = norms(cvText).split(/\\s+/);
+  const jd = norms(jdText).split(/\\s+/);
+  const set = new Set(jd);
+  let hits = 0;
+  for (const w of cv) {
+    if (set.has(w)) {
+      hits++;
     }
-  };
+  }
+  const score = jd.length ? Math.min(100, Math.round((hits / jd.length) * 120)) : 0;
+  const freq = {};
+  for (const w of jd) {
+    freq[w] = (freq[w] || 0) + 1;
+  }
+  const top = Object.entries(freq)
+    .filter(([w]) => w.length > 3)
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 12)
+    .map(([w]) => w);
+  return { score, top };
+}
 
-  // Handles starting the lesson based on the user's "profile"
-  const handleStartLesson = (subject) => {
-    // Get the learning style from the test answers
-    const learningStyle = testAnswers['q1'] || 'By watching videos';
-    const explanation = getMockAIExplanation(subject, learningStyle);
-    setAiResponse(explanation);
-    setScreen('lesson');
-  };
+// Inbuilt UK curriculum demo data
+const UK_CLASSES = {
+  "KS3 (Years 7–9)": {
+    subjects: ["Maths", "Biology", "Chemistry", "Physics", "Computer Science", "Geography", "History", "English"],
+    objectives: {
+      Maths: ["Use ratio and proportion", "Solve linear equations", "Area and perimeter"],
+      Biology: ["Cell structure and functions", "Organs & systems", "Photosynthesis basics"],
+      Chemistry: ["Particle model", "Elements, compounds, mixtures", "Acids and alkalis"],
+      Physics: ["Forces and motion", "Energy transfers", "Waves: sound & light"],
+      "Computer Science": ["Algorithms and flowcharts", "Scratch/Python basics", "Data representation"],
+      Geography: ["UK physical landscapes", "Weather & climate", "Population change"],
+      History: ["Medieval England", "Industrial Revolution", "World War I"],
+      English: ["Non‑fiction analysis", "Narrative devices", "Grammar & punctuation"]
+    }
+  },
+  "GCSE (Years 10–11)": {
+    subjects: ["Maths", "Biology", "Chemistry", "Physics", "Computer Science", "Business", "Geography", "History", "English Language"],
+    objectives: {
+      Maths: ["Simultaneous equations", "Quadratics (factor/solve)", "Statistics: averages & spread"],
+      Biology: ["Enzymes & digestion", "Homeostasis", "Genetics: Punnett squares"],
+      Chemistry: ["Ionic/covalent bonding", "Reacting masses", "Electrolysis"],
+      Physics: ["Forces & vectors", "Electricity: V=IR", "Radioactivity"],
+      "Computer Science": ["Trace pseudocode", "Time/space complexity (informal)", "Databases & SQL"],
+      Business: ["Marketing mix", "Cash‑flow forecasts", "Stakeholders"],
+      Geography: ["Coasts & rivers", "Resource management", "Global development"],
+      History: ["Weimar & Nazi Germany", "Health & Medicine", "Cold War"],
+      "English Language": ["Paper 1 Q2/Q3 techniques", "Comparative analysis", "Evaluation"]
+    }
+  },
+  "A‑Level (Years 12–13)": {
+    subjects: ["Maths", "Biology", "Chemistry", "Physics", "Computer Science", "Economics", "Psychology"],
+    objectives: {
+      Maths: ["Differentiation & integration", "Proof by induction", "Vectors"],
+      Biology: ["Translation & transcription", "Immune response", "Ecology & sampling"],
+      Chemistry: ["Organic mechanisms", "Equilibrium & Kc", "Thermodynamics"],
+      Physics: ["SHM", "Electric fields & capacitors", "Quantum phenomena"],
+      "Computer Science": ["Complexity & Big‑O", "OOP patterns", "Database normalisation"],
+      Economics: ["Elasticities", "Market failure & gov. intervention", "Monetary policy"],
+      Psychology: ["Research methods", "Attachment theories", "Biopsychology basics"]
+    }
+  }
+};
 
-  // Handles the gamified botany lesson progression
-  const handleLessonProgression = () => {
-    setLessonStage(lessonStage + 1);
-  };
+// Main application component
+export default function GenZAI_MVP_v3() {
+  const [logoSrc, setLogoSrc] = useLocalStorage("genzai_logo", "");
+  const [tagline] = useState("Moving minds to an immersive world");
+  
+  // State for accessibility settings
+  const [dark, setDark] = useLocalStorage("a11y_dark", false);
+  const [highContrast, setHighContrast] = useLocalStorage("a11y_contrast", false);
+  const [bigText, setBigText] = useLocalStorage("a11y_bigtext", false);
+  const [dyslexia, setDyslexia] = useLocalStorage("a11y_dyslexia", false);
+  const [reduceMotion, setReduceMotion] = useLocalStorage("a11y_reduce_motion", false);
 
-  // Toggles the dark mode on and off
-  const toggleDarkMode = () => {
-    setIsDarkMode(!isDarkMode);
-  };
+  const [tab, setTab] = useState("student");
+  // State for the user's psychometric profile
+  const [profile, setProfile] = useLocalStorage("genzai_profile", {
+    assessed: false,
+    style: "bullets",
+    tone: "encouraging",
+    pace: "normal"
+  });
 
-  // Reusable card component for the home screen
-  const Card = ({ icon, title, description, onClick }) => (
-    <div
-      onClick={onClick}
-      className="bg-gray-100 dark:bg-gray-800 p-6 rounded-3xl shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105 cursor-pointer flex flex-col items-center text-center"
-    >
-      <div className="p-4 bg-purple-500 rounded-full text-white mb-4">
-        {icon}
-      </div>
-      <h3 className="text-xl font-bold mb-2 text-gray-900 dark:text-white">{title}</h3>
-      <p className="text-gray-600 dark:text-gray-400 text-sm">{description}</p>
-    </div>
+  // Apply dark mode class to the HTML root element
+  useEffect(() => {
+    document.documentElement.classList.toggle("dark", dark);
+  }, [dark]);
+
+  // Dynamic class names based on accessibility settings
+  const appClass = cx(
+    "min-h-screen font-sans",
+    dark ? "bg-gray-950 text-gray-100" : "bg-white text-slate-900",
+    highContrast ? "contrast-150" : "",
+    bigText ? "text-[17px]" : "text-base",
+    dyslexia ? "tracking-wide" : ""
   );
 
-  // Main application UI, rendered based on the current screen state
   return (
-    <div className={`min-h-screen font-sans ${isDarkMode ? 'dark bg-gray-900 text-white' : 'bg-white text-gray-900'}`}>
-      {/* Header with logo and dark mode toggle */}
-      <header className="py-6 px-4 md:px-8 flex justify-between items-center">
-        <div className="flex items-center space-x-2">
-          <Sparkles className="h-8 w-8 text-purple-600" />
-          <h1 className="text-2xl font-extrabold text-gray-900 dark:text-white">GenZ.AI</h1>
-        </div>
-        <button
-          onClick={toggleDarkMode}
-          className="p-2 rounded-full bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-white hover:ring-2 ring-purple-500 transition-all duration-200"
-        >
-          {isDarkMode ? <Sun className="h-6 w-6" /> : <Moon className="h-6 w-6" />}
-        </button>
+    <div className={appClass}>
+      <a href="#main" className="sr-only focus:not-sr-only focus:absolute focus:top-2 focus:left-2 bg-purple-600 text-white rounded px-3 py-1">Skip to content</a>
+      <header className="sticky top-0 z-50 border-b border-gray-200 dark:border-gray-700 p-3 flex items-center gap-3 backdrop-blur supports-[backdrop-filter]:bg-white/60 dark:supports-[backdrop-filter]:bg-gray-900/60">
+        <LogoArea logoSrc={logoSrc} setLogoSrc={setLogoSrc} />
+        <div className="flex-1" />
+        <A11yBar
+          dark={dark}
+          setDark={setDark}
+          highContrast={highContrast}
+          setHighContrast={setHighContrast}
+          bigText={bigText}
+          setBigText={setBigText}
+          dyslexia={dyslexia}
+          setDyslexia={setDyslexia}
+          reduceMotion={reduceMotion}
+          setReduceMotion={setReduceMotion}
+        />
       </header>
 
-      {/* Content based on the current screen */}
-      <main className="container mx-auto p-4 md:p-8">
-        {screen === 'home' && (
-          <div className="text-center py-12 md:py-24">
-            <h2 className="text-4xl md:text-5xl font-extrabold text-purple-600 mb-4">
-              Unlock Your Potential
-            </h2>
-            <p className="text-lg md:text-xl text-gray-600 dark:text-gray-400 max-w-2xl mx-auto mb-10">
-              Personalized learning and career paths for students and professionals.
-            </p>
-            <button
-              onClick={() => setScreen('test')}
-              className="bg-purple-600 text-white px-8 py-4 rounded-full font-bold text-lg shadow-xl hover:bg-purple-700 transition-all duration-300 transform hover:scale-105"
-            >
-              Start Your Journey
-            </button>
-
-            <div className="mt-20 grid grid-cols-1 md:grid-cols-3 gap-8">
-              <Card
-                icon={<GraduationCap className="h-10 w-10" />}
-                title="Student Mode"
-                description="Gamified lessons and adaptive learning tailored to your style."
-              />
-              <Card
-                icon={<Briefcase className="h-10 w-10" />}
-                title="Professional Mode"
-                description="ATS-friendly CV tailoring and job recommendations."
-              />
-              <Card
-                icon={<User className="h-10 w-10" />}
-                title="Hobbyist Mode"
-                description="Free-to-talk AI chat for curiosity and personal growth."
-              />
-            </div>
-          </div>
-        )}
-
-        {screen === 'test' && (
-          <div className="bg-gray-50 dark:bg-gray-800 p-8 md:p-12 rounded-3xl shadow-xl max-w-3xl mx-auto">
-            <h2 className="text-3xl font-bold mb-6 text-center text-purple-600">
-              Psychometric Profile
-            </h2>
-            <p className="text-gray-600 dark:text-gray-400 text-center mb-8">
-              Help us understand you better to create a personalized experience.
-            </p>
-            {psychometricQuestions.map((q, index) => (
-              <div key={q.id} className="mb-8">
-                <h3 className="text-xl font-semibold mb-4 text-gray-900 dark:text-white">{`Q${index + 1}. ${q.question}`}</h3>
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                  {q.options.map((option) => (
-                    <button
-                      key={option}
-                      onClick={() => handleTestAnswer(q.id, option)}
-                      className={`
-                        p-4 rounded-xl border-2 transition-all duration-200 text-center
-                        ${testAnswers[q.id] === option
-                          ? 'bg-purple-600 text-white border-purple-600 shadow-lg'
-                          : 'bg-white dark:bg-gray-700 border-gray-300 dark:border-gray-600 text-gray-800 dark:text-white hover:bg-gray-100 dark:hover:bg-gray-600'
-                        }
-                      `}
-                    >
-                      {option}
-                    </button>
-                  ))}
-                </div>
+      <main id="main" className="container mx-auto max-w-6xl px-4 pb-24">
+        <Hero tagline={tagline} />
+        {!profile.assessed ? (
+          <PsychometricOnboarding profile={profile} setProfile={setProfile} />
+        ) : (
+          <>
+            {/* Tabs for different user modes */}
+            <div className="mt-6">
+              <div className="flex bg-gray-200 dark:bg-gray-800 p-1 rounded-full space-x-1">
+                <button
+                  onClick={() => setTab("student")}
+                  className={cx(
+                    "flex-1 p-2 rounded-full font-medium transition-colors duration-200",
+                    tab === "student" ? "bg-white shadow-sm dark:bg-gray-700" : "hover:bg-gray-300 dark:hover:bg-gray-700"
+                  )}
+                >
+                  <GraduationCap className="h-4 w-4 inline-block mr-2" /> Student
+                </button>
+                <button
+                  onClick={() => setTab("pro")}
+                  className={cx(
+                    "flex-1 p-2 rounded-full font-medium transition-colors duration-200",
+                    tab === "pro" ? "bg-white shadow-sm dark:bg-gray-700" : "hover:bg-gray-300 dark:hover:bg-gray-700"
+                  )}
+                >
+                  <Briefcase className="h-4 w-4 inline-block mr-2" /> Professional
+                </button>
+                <button
+                  onClick={() => setTab("hobby")}
+                  className={cx(
+                    "flex-1 p-2 rounded-full font-medium transition-colors duration-200",
+                    tab === "hobby" ? "bg-white shadow-sm dark:bg-gray-700" : "hover:bg-gray-300 dark:hover:bg-gray-700"
+                  )}
+                >
+                  <Gamepad2 className="h-4 w-4 inline-block mr-2" /> Hobbyist
+                </button>
               </div>
-            ))}
-          </div>
-        )}
 
-        {screen === 'result' && (
-          <div className="text-center py-12 md:py-24">
-            <h2 className="text-4xl md:text-5xl font-extrabold text-purple-600 mb-4">
-              Your Profile is Complete!
-            </h2>
-            <p className="text-lg md:text-xl text-gray-600 dark:text-gray-400 max-w-2xl mx-auto mb-10">
-              We've created a unique learning path just for you. Let's start with a sample lesson.
-            </p>
-            <button
-              onClick={() => handleStartLesson('Botany')}
-              className="bg-green-600 text-white px-8 py-4 rounded-full font-bold text-lg shadow-xl hover:bg-green-700 transition-all duration-300 transform hover:scale-105"
-            >
-              Start Botany Lesson
-            </button>
-          </div>
-        )}
-
-        {screen === 'lesson' && (
-          <div className="bg-gray-50 dark:bg-gray-800 p-8 md:p-12 rounded-3xl shadow-xl max-w-4xl mx-auto">
-            <div className="flex items-center space-x-4 mb-6 text-purple-600">
-              <Leaf className="h-10 w-10" />
-              <h2 className="text-3xl font-bold">Botany: Photosynthesis</h2>
+              {/* Tab content based on the selected tab */}
+              {tab === "student" && <StudentMode profile={profile} reduceMotion={reduceMotion} />}
+              {tab === "pro" && <ProfessionalMode profile={profile} />}
+              {tab === "hobby" && <HobbyMode profile={profile} />}
             </div>
-            
-            {/* AI Explanation Section */}
-            <div className="mb-8 bg-purple-100 dark:bg-purple-900 p-6 rounded-2xl shadow-inner">
-              <p className="text-lg text-gray-800 dark:text-white">{aiResponse}</p>
-            </div>
-
-            {/* Gamified Section */}
-            <div className="border-t-2 border-gray-200 dark:border-gray-700 pt-8">
-              <h3 className="text-2xl font-bold mb-4">The Gamified Challenge</h3>
-              {lessonStage === 0 && (
-                <div className="text-center">
-                  <p className="text-xl text-gray-600 dark:text-gray-400 mb-6">
-                    Ready to build your first plant factory? Let's begin!
-                  </p>
-                  <button
-                    onClick={handleLessonProgression}
-                    className="bg-blue-600 text-white px-6 py-3 rounded-full font-bold shadow-md hover:bg-blue-700 transition-colors"
-                  >
-                    Start Game
-                  </button>
-                </div>
-              )}
-              {lessonStage === 1 && (
-                <div className="text-center">
-                  <p className="text-xl text-gray-600 dark:text-gray-400 mb-6">
-                    Find the 3 essential ingredients for your plant factory: Sunlight, Water, and Carbon Dioxide.
-                  </p>
-                  <div className="flex justify-center space-x-4 mb-6">
-                    <span className="p-4 bg-yellow-400 rounded-full text-white text-3xl shadow-lg">☀️</span>
-                    <span className="p-4 bg-blue-400 rounded-full text-white text-3xl shadow-lg">💧</span>
-                    <span className="p-4 bg-gray-400 rounded-full text-white text-3xl shadow-lg">🌬️</span>
-                  </div>
-                  <button
-                    onClick={handleLessonProgression}
-                    className="bg-green-600 text-white px-6 py-3 rounded-full font-bold shadow-md hover:bg-green-700 transition-colors"
-                  >
-                    Found them!
-                  </button>
-                </div>
-              )}
-              {lessonStage === 2 && (
-                <div className="text-center">
-                  <p className="text-xl text-gray-600 dark:text-gray-400 mb-6">
-                    Great job! You've successfully completed the first stage of your plant factory.
-                  </p>
-                  <button
-                    onClick={() => setScreen('home')}
-                    className="bg-purple-600 text-white px-6 py-3 rounded-full font-bold shadow-md hover:bg-purple-700 transition-colors"
-                  >
-                    Back to Home
-                  </button>
-                </div>
-              )}
-            </div>
-          </div>
+          </>
         )}
       </main>
+
+      <footer className="border-t border-gray-200 dark:border-gray-700">
+        <div className="container mx-auto max-w-6xl px-4 py-6 text-sm flex items-center gap-2">
+          <ShieldCheck className="h-4 w-4" /> Inclusive, privacy‑first, UK‑only MVP.
+        </div>
+      </footer>
     </div>
+  );
+}
+
+// ---------- Header Components ----------
+function LogoArea({ logoSrc, setLogoSrc }) {
+  const fileRef = useRef(null);
+
+  function onPick(e) {
+    const f = e.target.files?.[0];
+    if (!f) return;
+    const r = new FileReader();
+    r.onload = () => setLogoSrc(r.result);
+    r.readAsDataURL(f);
+  }
+
+  return (
+    <div className="flex items-center gap-2">
+      <div className="h-10 w-10 rounded-full bg-gradient-to-br from-purple-400 to-blue-600 flex items-center justify-center overflow-hidden">
+        {logoSrc ? <img src={logoSrc} alt="GenZ.AI logo" className="h-full w-full object-cover" /> : <span className="text-white font-bold">GZ</span>}
+      </div>
+      <div>
+        <div className="font-bold text-lg">GenZ.AI</div>
+        <div className="text-xs opacity-70">Moving minds to an immersive world</div>
+      </div>
+      <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={onPick} />
+      <button
+        className="px-4 py-2 text-sm rounded-full border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+        onClick={() => fileRef.current?.click()}
+      >
+        <Upload className="h-4 w-4 inline-block mr-2" /> Logo
+      </button>
+    </div>
+  );
+}
+
+function A11yBar({
+  dark, setDark, highContrast, setHighContrast,
+  bigText, setBigText, dyslexia, setDyslexia,
+  reduceMotion, setReduceMotion
+}) {
+  return (
+    <div className="flex items-center gap-3 text-sm">
+      <span className="px-2 py-1 bg-gray-200 dark:bg-gray-800 rounded-full text-xs flex items-center gap-1">
+        <Accessibility className="h-3 w-3" /> Inclusive
+      </span>
+      <div className="flex items-center gap-1" title="Dark mode">
+        <Sun className="h-4 w-4" />
+        <button
+          onClick={() => setDark(!dark)}
+          className={cx(
+            "w-10 h-6 rounded-full p-1 transition-colors duration-200",
+            dark ? "bg-purple-600" : "bg-gray-400"
+          )}
+        >
+          <div
+            className={cx(
+              "w-4 h-4 bg-white rounded-full transition-transform duration-200",
+              dark ? "translate-x-4" : "translate-x-0"
+            )}
+          />
+        </button>
+        <Moon className="h-4 w-4" />
+      </div>
+      <label className="flex items-center gap-2">
+        High contrast
+        <button
+          onClick={() => setHighContrast(!highContrast)}
+          className={cx(
+            "w-10 h-6 rounded-full p-1 transition-colors duration-200",
+            highContrast ? "bg-purple-600" : "bg-gray-400"
+          )}
+        >
+          <div
+            className={cx(
+              "w-4 h-4 bg-white rounded-full transition-transform duration-200",
+              highContrast ? "translate-x-4" : "translate-x-0"
+            )}
+          />
+        </button>
+      </label>
+      <label className="flex items-center gap-2">
+        Larger text
+        <button
+          onClick={() => setBigText(!bigText)}
+          className={cx(
+            "w-10 h-6 rounded-full p-1 transition-colors duration-200",
+            bigText ? "bg-purple-600" : "bg-gray-400"
+          )}
+        >
+          <div
+            className={cx(
+              "w-4 h-4 bg-white rounded-full transition-transform duration-200",
+              bigText ? "translate-x-4" : "translate-x-0"
+            )}
+          />
+        </button>
+      </label>
+      <label className="flex items-center gap-2">
+        Dyslexia-friendly
+        <button
+          onClick={() => setDyslexia(!dyslexia)}
+          className={cx(
+            "w-10 h-6 rounded-full p-1 transition-colors duration-200",
+            dyslexia ? "bg-purple-600" : "bg-gray-400"
+          )}
+        >
+          <div
+            className={cx(
+              "w-4 h-4 bg-white rounded-full transition-transform duration-200",
+              dyslexia ? "translate-x-4" : "translate-x-0"
+            )}
+          />
+        </button>
+      </label>
+      <label className="flex items-center gap-2">
+        Reduce motion
+        <button
+          onClick={() => setReduceMotion(!reduceMotion)}
+          className={cx(
+            "w-10 h-6 rounded-full p-1 transition-colors duration-200",
+            reduceMotion ? "bg-purple-600" : "bg-gray-400"
+          )}
+        >
+          <div
+            className={cx(
+              "w-4 h-4 bg-white rounded-full transition-transform duration-200",
+              reduceMotion ? "translate-x-4" : "translate-x-0"
+            )}
+          />
+        </button>
+      </label>
+    </div>
+  );
+}
+
+function Hero({ tagline }) {
+  return (
+    <section className="mt-6">
+      <div className="bg-white dark:bg-gray-800 p-6 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-700">
+        <div className="pb-2">
+          <h2 className="text-2xl font-bold flex items-center gap-2">
+            <Brain className="h-6 w-6" /> GenZ.AI – Adaptive Learning & Careers
+          </h2>
+        </div>
+        <div className="grid gap-4 md:grid-cols-3">
+          <div className="md:col-span-2 leading-relaxed">
+            <p>{tagline}. Psychometric onboarding tunes <strong className="font-bold">tone, pace & style</strong> across Student, Professional and Hobbyist modes.</p>
+            <ul className="list-disc pl-5 mt-2 text-sm opacity-90">
+              <li>Student: pick class → subject appears → ask questions → retry explanations until it clicks.</li>
+              <li>Professional: CV→ATS tailoring to a JD + job search demo.</li>
+              <li>Hobbyist: free chat & micro‑lessons.</li>
+            </ul>
+          </div>
+          <div className="rounded-2xl bg-gradient-to-br from-purple-200/70 to-indigo-200/70 dark:from-purple-900/40 dark:to-indigo-900/40 p-4">
+            <h3 className="font-semibold mb-2 flex items-center gap-2">
+              <ShieldCheck className="h-4 w-4" /> Compliance‑first
+            </h3>
+            <ul className="text-sm opacity-90 space-y-1">
+              <li>GDPR + Age‑Appropriate Design Code</li>
+              <li>Privacy by default (no external sends in this demo)</li>
+              <li>Keyboard & screen‑reader friendly UI</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+// ---------- Psychometric Component ----------
+function PsychometricOnboarding({ profile, setProfile }) {
+  const [style, setStyle] = useState(profile.style || "bullets");
+  const [tone, setTone] = useState(profile.tone || "encouraging");
+  const [pace, setPace] = useState(profile.pace || "normal");
+
+  function save() {
+    setProfile({ assessed: true, style, tone, pace });
+  }
+
+  return (
+    <section className="mt-6">
+      <div className="bg-white dark:bg-gray-800 p-6 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-700">
+        <div className="pb-2">
+          <h2 className="text-2xl font-bold flex items-center gap-2">
+            <CheckCircle2 className="h-5 w-5" /> Quick Psychometric + Survey
+          </h2>
+        </div>
+        <div className="grid md:grid-cols-3 gap-3">
+          <div>
+            <div className="text-sm font-medium">Learning style</div>
+            <select
+              className="px-4 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-transparent w-full mt-1 dark:bg-gray-700"
+              value={style}
+              onChange={e => setStyle(e.target.value)}
+            >
+              <option value="bullets">Visual/Bullets</option>
+              <option value="steps">Step‑by‑step</option>
+              <option value="analogy">Analogies/Stories</option>
+              <option value="simple">Concise one‑liners</option>
+            </select>
+          </div>
+          <div>
+            <div className="text-sm font-medium">Tone</div>
+            <select
+              className="px-4 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-transparent w-full mt-1 dark:bg-gray-700"
+              value={tone}
+              onChange={e => setTone(e.target.value)}
+            >
+              <option value="encouraging">Encouraging</option>
+              <option value="neutral">Neutral</option>
+              <option value="direct">Direct</option>
+            </select>
+          </div>
+          <div>
+            <div className="text-sm font-medium">Pace</div>
+            <select
+              className="px-4 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-transparent w-full mt-1 dark:bg-gray-700"
+              value={pace}
+              onChange={e => setPace(e.target.value)}
+            >
+              <option value="slow">Slow</option>
+              <option value="normal">Normal</option>
+              <option value="fast">Fast</option>
+            </select>
+          </div>
+          <div className="md:col-span-3 mt-2">
+            <button
+              onClick={save}
+              className="bg-purple-600 text-white px-6 py-3 rounded-full font-bold shadow-md hover:bg-purple-700 transition-colors"
+            >
+              <CheckCircle2 className="h-4 w-4 inline-block mr-2" /> Save & Continue
+            </button>
+          </div>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+// ---------- Student Mode Components ----------
+function StudentMode({ profile, reduceMotion }) {
+  const classNamesList = Object.keys(UK_CLASSES);
+  const [klass, setKlass] = useState(classNamesList[0]);
+  const [subject, setSubject] = useState(UK_CLASSES[classNamesList[0]].subjects[0]);
+  const [question, setQuestion] = useState("");
+  const [progress, setProgress] = useState(0);
+  const [explain, setExplain] = useState("");
+
+  useEffect(() => {
+    setSubject(UK_CLASSES[klass].subjects[0]);
+    setExplain("");
+    setProgress(0);
+  }, [klass]);
+
+  async function ask() {
+    const goal = (UK_CLASSES[klass].objectives[subject] || [])[0] || "Understand the topic";
+    const raw = await demoAnswer(`(${profile.tone} tone, ${profile.pace} pace) ${subject}: ${question}. Learning goal: ${goal}`);
+    setExplain(transformExplanation(raw, profile.style));
+    setProgress(p => Math.min(100, p + 40));
+    setQuestion("");
+  }
+
+  return (
+    <section className="mt-6 grid gap-6 md:grid-cols-3">
+      <div className="md:col-span-2">
+        <div className="bg-white dark:bg-gray-800 p-6 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-700">
+          <div className="pb-2">
+            <h2 className="text-2xl font-bold flex items-center gap-2">
+              <BookOpenCheck className="h-5 w-5" /> Student – Class & Subject
+            </h2>
+          </div>
+          <div className="space-y-3">
+            <div className="grid md:grid-cols-3 gap-2">
+              <div>
+                <div className="text-sm font-medium">Class</div>
+                <select
+                  className="w-full border rounded-lg px-2 py-2 bg-transparent dark:bg-gray-700"
+                  value={klass}
+                  onChange={e => setKlass(e.target.value)}
+                >
+                  {classNamesList.map(c => <option key={c} value={c}>{c}</option>)}
+                </select>
+              </div>
+              <div>
+                <div className="text-sm font-medium">Subject</div>
+                <select
+                  className="w-full border rounded-lg px-2 py-2 bg-transparent dark:bg-gray-700"
+                  value={subject}
+                  onChange={e => setSubject(e.target.value)}
+                >
+                  {UK_CLASSES[klass].subjects.map(s => <option key={s} value={s}>{s}</option>)}
+                </select>
+              </div>
+              <div className="flex items-end">
+                <div className="w-full h-2 rounded-full bg-gray-200 dark:bg-gray-600">
+                  <div className="h-full bg-purple-600 rounded-full" style={{ width: `${progress}%` }}></div>
+                </div>
+              </div>
+            </div>
+            <div className="flex gap-2">
+              <input
+                type="text"
+                placeholder={`Ask a ${subject} question`}
+                className="w-full px-4 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700"
+                value={question}
+                onChange={e => setQuestion(e.target.value)}
+              />
+              <button
+                onClick={ask}
+                className="bg-purple-600 text-white px-6 py-3 rounded-full font-bold shadow-md hover:bg-purple-700 transition-colors"
+              >
+                <Sparkles className="h-4 w-4 inline-block mr-1" /> Explain
+              </button>
+            </div>
+            {explain && (
+              <pre className={cx(
+                "whitespace-pre-wrap text-sm border rounded-lg p-3 bg-gray-100 dark:bg-gray-700",
+                reduceMotion ? "" : "animate-in fade-in duration-300"
+              )}>
+                {explain}
+              </pre>
+            )}
+          </div>
+        </div>
+      </div>
+      <div>
+        <div className="bg-white dark:bg-gray-800 p-6 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-700">
+          <div className="pb-2">
+            <h3 className="text-xl font-bold">Tips</h3>
+          </div>
+          <div className="text-sm opacity-80">
+            Switch class/subject, ask follow‑ups, and try again until it makes sense. The aim is your understanding, not dependence on AI.
+          </div>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+// ---------- Professional Mode Components ----------
+function ProfessionalMode({ profile }) {
+  return (
+    <section className="mt-6 grid gap-6 md:grid-cols-2">
+      <ATSTailor profile={profile} />
+      <JobSearchDemo />
+    </section>
+  );
+}
+
+function ATSTailor({ profile }) {
+  const [cv, setCv] = useState("");
+  const [jd, setJd] = useState("");
+  const [score, setScore] = useState(null);
+  const [suggestions, setSuggestions] = useState([]);
+  
+  function tailor() {
+    const { score, top } = scoreCVvsJD(cv, jd);
+    setScore(score);
+    setSuggestions(top);
+  }
+
+  function renderATS() {
+    const lines = cv.split(/\\n+/).map(l => l.trim()).filter(Boolean);
+    return lines.map(l => {
+      const hit = suggestions.find(k => l.toLowerCase().includes(k));
+      return hit ? `• ${l} — (${hit})` : `• ${l}`;
+    }).join("\\n");
+  }
+
+  return (
+    <div className="bg-white dark:bg-gray-800 p-6 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-700">
+      <div className="pb-2">
+        <h2 className="text-2xl font-bold flex items-center gap-2">
+          <FileText className="h-5 w-5" /> CV → ATS Tailoring
+        </h2>
+      </div>
+      <div className="space-y-3">
+        <textarea
+          className="w-full p-4 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 h-36 resize-y"
+          placeholder="Paste your CV (text)"
+          value={cv}
+          onChange={e => setCv(e.target.value)}
+        />
+        <textarea
+          className="w-full p-4 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 h-28 resize-y"
+          placeholder="Paste Job Description"
+          value={jd}
+          onChange={e => setJd(e.target.value)}
+        />
+        <div className="flex items-center gap-3">
+          <button
+            onClick={tailor}
+            className="bg-purple-600 text-white px-6 py-3 rounded-full font-bold shadow-md hover:bg-purple-700 transition-colors"
+          >
+            <Sparkles className="h-4 w-4 inline-block mr-2" /> Tailor
+          </button>
+          {score != null && (
+            <>
+              <span className="text-sm">Match:</span>
+              <div className="w-40 h-2 rounded-full bg-gray-200 dark:bg-gray-600">
+                <div className="h-full bg-purple-600 rounded-full transition-all duration-300" style={{ width: `${score}%` }}></div>
+              </div>
+              <span className="text-sm font-medium">{score}%</span>
+            </>
+          )}
+        </div>
+        {score != null && (
+          <div className="grid md:grid-cols-2 gap-3">
+            <div>
+              <div className="text-sm font-medium mb-1">Top JD keywords</div>
+              <div className="flex flex-wrap gap-1">
+                {suggestions.slice(0, 10).map((s, i) => (
+                  <span key={i} className="px-2 py-1 bg-gray-200 dark:bg-gray-700 rounded-full text-xs font-medium">
+                    {s}
+                  </span>
+                ))}
+              </div>
+            </div>
+            <div>
+              <div className="text-sm font-medium mb-1">ATS‑ready bullets</div>
+              <pre className="text-xs whitespace-pre-wrap border border-gray-300 dark:border-gray-600 rounded-lg p-2 bg-gray-100 dark:bg-gray-700">{renderATS()}</pre>
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function JobSearchDemo() {
+  const [keyword, setKeyword] = useState("data analyst");
+  const [location, setLocation] = useState("UK");
+  const [jobs, setJobs] = useState([]);
+
+  // Demo: client‑side fake results.
+  function search() {
+    const sample = [
+      { title: "Graduate Data Analyst", company: "NHS Trust", where: "London", link: "#" },
+      { title: "Junior BI Analyst", company: "RetailCo", where: "Manchester", link: "#" },
+      { title: "Operations Analyst", company: "Gov Dept", where: "Leeds", link: "#" },
+    ];
+    const k = keyword.toLowerCase();
+    const l = location.toLowerCase();
+    setJobs(
+      sample.filter(j =>
+        j.title.toLowerCase().includes(k) || j.company.toLowerCase().includes(k)
+      ).filter(j =>
+        l === "uk" || j.where.toLowerCase().includes(l)
+      )
+    );
+  }
+
+  return (
+    <div className="bg-white dark:bg-gray-800 p-6 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-700">
+      <div className="pb-2">
+        <h2 className="text-2xl font-bold flex items-center gap-2">
+          <Search className="h-5 w-5" /> Job Search (demo)
+        </h2>
+      </div>
+      <div className="space-y-3">
+        <div className="grid grid-cols-3 gap-2">
+          <input
+            type="text"
+            value={keyword}
+            onChange={e => setKeyword(e.target.value)}
+            placeholder="Keyword"
+            className="col-span-2 px-4 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700"
+          />
+          <input
+            type="text"
+            value={location}
+            onChange={e => setLocation(e.target.value)}
+            placeholder="Location"
+            className="px-4 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700"
+          />
+          <button
+            onClick={search}
+            className="col-span-3 bg-purple-600 text-white px-6 py-3 rounded-full font-bold shadow-md hover:bg-purple-700 transition-colors"
+          >
+            Search
+          </button>
+        </div>
+        <div className="space-y-2">
+          {jobs.map((j, i) => (
+            <div key={i} className="p-3 rounded-lg border border-gray-300 dark:border-gray-600 bg-gray-100 dark:bg-gray-700">
+              <div className="font-medium">{j.title}</div>
+              <div className="text-sm opacity-80">{j.company} — {j.where}</div>
+              <a className="text-sm underline text-purple-600" href={j.link} target="_blank" rel="noreferrer">
+                View
+              </a>
+            </div>
+          ))}
+          {jobs.length === 0 && (
+            <div className="text-sm opacity-70">
+              Try a search to see demo results. In production, connect to an open API via your backend.
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ---------- Hobbyist Component ----------
+function HobbyMode({ profile }) {
+  const [q, setQ] = useState("");
+  const [log, setLog] = useState([{ who: "bot", text: "Hi! What are you curious about today?" }]);
+
+  async function send() {
+    const a = await demoAnswer(`(${profile.tone} tone, ${profile.pace} pace) ${q}`);
+    setLog(l => [...l, { who: "you", text: q }, { who: "bot", text: a }]);
+    setQ("");
+  }
+
+  return (
+    <section className="mt-6 grid gap-6 md:grid-cols-3">
+      <div className="md:col-span-2">
+        <div className="bg-white dark:bg-gray-800 p-6 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-700">
+          <div className="pb-2">
+            <h2 className="text-2xl font-bold flex items-center gap-2">
+              <MessagesSquare className="h-5 w-5" /> Hobbyist – Free Chat
+            </h2>
+          </div>
+          <div className="space-y-3">
+            <div className="flex gap-2">
+              <input
+                type="text"
+                placeholder="Ask anything"
+                className="w-full px-4 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700"
+                value={q}
+                onChange={e => setQ(e.target.value)}
+                onKeyDown={e => { if (e.key === 'Enter') send(); }}
+              />
+              <button
+                onClick={send}
+                className="bg-purple-600 text-white px-6 py-3 rounded-full font-bold shadow-md hover:bg-purple-700 transition-colors"
+              >
+                Send
+              </button>
+            </div>
+            <div className="mt-3 space-y-2 max-h-80 overflow-y-auto p-2">
+              {log.map((m, i) => (
+                <div
+                  key={i}
+                  className={cx(
+                    "text-sm p-3 rounded-lg",
+                    m.who === "you"
+                      ? "bg-purple-100 dark:bg-purple-900/30 self-end"
+                      : "bg-green-100 dark:bg-green-900/30"
+                  )}
+                >
+                  {m.text}
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      </div>
+      <div>
+        <div className="bg-white dark:bg-gray-800 p-6 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-700">
+          <div className="pb-2">
+            <h3 className="text-xl font-bold">Micro‑lesson</h3>
+          </div>
+          <div className="text-sm opacity-90">
+            Hook this to your content pipeline to auto‑generate 90‑second mini lessons with a quick quiz.
+          </div>
+        </div>
+      </div>
+    </section>
   );
 }
