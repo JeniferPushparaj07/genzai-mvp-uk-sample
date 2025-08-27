@@ -15,6 +15,8 @@ import {
   CheckCircle2,
   FileText,
   Search,
+  ChevronRight,
+  ChevronLeft,
 } from 'lucide-react';
 
 // A simple utility to concatenate class names
@@ -182,7 +184,7 @@ export default function GenZAI_MVP_v3() {
       <main id="main" className="container mx-auto max-w-6xl px-4 pb-24">
         <Hero tagline={tagline} />
         {!profile.assessed ? (
-          <PsychometricOnboarding profile={profile} setProfile={setProfile} />
+          <OnboardingScreen profile={profile} setProfile={setProfile} />
         ) : (
           <>
             {/* Tabs for different user modes */}
@@ -384,70 +386,101 @@ function Hero({ tagline }) {
   );
 }
 
-// ---------- Psychometric Component ----------
-function PsychometricOnboarding({ profile, setProfile }) {
-  const [style, setStyle] = useState(profile.style || "bullets");
-  const [tone, setTone] = useState(profile.tone || "encouraging");
-  const [pace, setPace] = useState(profile.pace || "normal");
+// ---------- New Onboarding Flow Component ----------
+function OnboardingScreen({ profile, setProfile }) {
+  const [step, setStep] = useState(0);
 
-  function save() {
-    setProfile({ assessed: true, style, tone, pace });
-  }
+  const steps = [
+    {
+      title: "Step 1: Your Learning Style",
+      description: "How do you prefer to learn new concepts?",
+      options: [
+        { label: "Visual/Bullets", value: "bullets" },
+        { label: "Step‑by‑step", value: "steps" },
+        { label: "Analogies/Stories", value: "analogy" },
+        { label: "Concise one‑liners", value: "simple" },
+      ],
+      field: "style"
+    },
+    {
+      title: "Step 2: Your Preferred Tone",
+      description: "What kind of tone helps you focus and stay motivated?",
+      options: [
+        { label: "Encouraging", value: "encouraging" },
+        { label: "Neutral", value: "neutral" },
+        { label: "Direct", value: "direct" },
+      ],
+      field: "tone"
+    },
+    {
+      title: "Step 3: Your Learning Pace",
+      description: "How quickly do you like to move through topics?",
+      options: [
+        { label: "Slow", value: "slow" },
+        { label: "Normal", value: "normal" },
+        { label: "Fast", value: "fast" },
+      ],
+      field: "pace"
+    }
+  ];
+
+  const currentStepData = steps[step];
+
+  const handleNext = (selectedValue) => {
+    setProfile(p => ({ ...p, [currentStepData.field]: selectedValue }));
+    if (step < steps.length - 1) {
+      setStep(step + 1);
+    } else {
+      setProfile(p => ({ ...p, assessed: true }));
+    }
+  };
+  
+  const handleBack = () => {
+    if (step > 0) {
+      setStep(step - 1);
+    }
+  };
+
+  const progress = ((step + 1) / steps.length) * 100;
 
   return (
     <section className="mt-6">
       <div className="bg-white dark:bg-gray-800 p-6 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-700">
-        <div className="pb-2">
-          <h2 className="text-2xl font-bold flex items-center gap-2">
-            <CheckCircle2 className="h-5 w-5" /> Quick Psychometric + Survey
-          </h2>
+        <div className="pb-2 flex items-center gap-2">
+          <CheckCircle2 className="h-5 w-5" />
+          <h2 className="text-xl font-bold">{currentStepData.title}</h2>
         </div>
-        <div className="grid md:grid-cols-3 gap-3">
-          <div>
-            <div className="text-sm font-medium">Learning style</div>
-            <select
-              className="px-4 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-transparent w-full mt-1 dark:bg-gray-700"
-              value={style}
-              onChange={e => setStyle(e.target.value)}
-            >
-              <option value="bullets">Visual/Bullets</option>
-              <option value="steps">Step‑by‑step</option>
-              <option value="analogy">Analogies/Stories</option>
-              <option value="simple">Concise one‑liners</option>
-            </select>
-          </div>
-          <div>
-            <div className="text-sm font-medium">Tone</div>
-            <select
-              className="px-4 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-transparent w-full mt-1 dark:bg-gray-700"
-              value={tone}
-              onChange={e => setTone(e.target.value)}
-            >
-              <option value="encouraging">Encouraging</option>
-              <option value="neutral">Neutral</option>
-              <option value="direct">Direct</option>
-            </select>
-          </div>
-          <div>
-            <div className="text-sm font-medium">Pace</div>
-            <select
-              className="px-4 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-transparent w-full mt-1 dark:bg-gray-700"
-              value={pace}
-              onChange={e => setPace(e.target.value)}
-            >
-              <option value="slow">Slow</option>
-              <option value="normal">Normal</option>
-              <option value="fast">Fast</option>
-            </select>
-          </div>
-          <div className="md:col-span-3 mt-2">
+        <div className="mb-4 text-sm opacity-80">{currentStepData.description}</div>
+        <div className="space-y-3">
+          {currentStepData.options.map((option, i) => (
             <button
-              onClick={save}
-              className="bg-purple-600 text-white px-6 py-3 rounded-full font-bold shadow-md hover:bg-purple-700 transition-colors"
+              key={i}
+              onClick={() => handleNext(option.value)}
+              className="w-full px-6 py-4 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-left font-medium hover:bg-purple-100 dark:hover:bg-purple-900 transition-colors"
             >
-              <CheckCircle2 className="h-4 w-4 inline-block mr-2" /> Save & Continue
+              {option.label}
             </button>
+          ))}
+        </div>
+        <div className="mt-6 flex items-center justify-between">
+          <button
+            onClick={handleBack}
+            disabled={step === 0}
+            className={cx(
+              "px-4 py-2 rounded-full font-bold",
+              step === 0 ? "opacity-50 cursor-not-allowed" : "bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600"
+            )}
+          >
+            <ChevronLeft className="h-4 w-4 inline-block mr-1" /> Back
+          </button>
+          <div className="flex-1 mx-4">
+            <div className="h-2 rounded-full bg-gray-200 dark:bg-gray-600">
+              <div className="h-full bg-purple-600 rounded-full transition-all duration-300" style={{ width: `${progress}%` }}></div>
+            </div>
           </div>
+          <span className="text-sm font-medium opacity-80">
+            Step {step + 1} of {steps.length}
+          </span>
         </div>
       </div>
     </section>
