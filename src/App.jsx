@@ -142,14 +142,16 @@ export default function GenZAI_MVP_v3() {
   const [dyslexia, setDyslexia] = useLocalStorage("a11y_dyslexia", false);
   const [reduceMotion, setReduceMotion] = useLocalStorage("a11y_reduce_motion", false);
 
-  const [tab, setTab] = useState("student");
   // State for the user's psychometric profile
   const [profile, setProfile] = useLocalStorage("genzai_profile", {
     assessed: false,
+    mode: "student", // Default mode
     style: "bullets",
     tone: "encouraging",
     pace: "normal"
   });
+
+  const [tab, setTab] = useState(profile.mode);
 
   // Apply dark mode class to the HTML root element
   useEffect(() => {
@@ -168,27 +170,28 @@ export default function GenZAI_MVP_v3() {
   return (
     <div className={appClass}>
       <a href="#main" className="sr-only focus:not-sr-only focus:absolute focus:top-2 focus:left-2 bg-purple-600 text-white rounded px-3 py-1">Skip to content</a>
-      <header className="sticky top-0 z-50 border-b border-gray-200 dark:border-gray-700 p-3 flex items-center justify-between gap-3 backdrop-blur supports-[backdrop-filter]:bg-white/60 dark:supports-[backdrop-filter]:bg-gray-900/60 flex-wrap">
-        <LogoArea tagline={tagline} />
-        <A11yBar
-          dark={dark}
-          setDark={setDark}
-          highContrast={highContrast}
-          setHighContrast={setHighContrast}
-          bigText={bigText}
-          setBigText={setBigText}
-          dyslexia={dyslexia}
-          setDyslexia={setDyslexia}
-          reduceMotion={reduceMotion}
-          setReduceMotion={setReduceMotion}
-        />
-      </header>
 
-      <main id="main" className="container mx-auto max-w-6xl px-4 pb-24">
-        {!profile.assessed ? (
-          <OnboardingScreen profile={profile} setProfile={setProfile} />
-        ) : (
-          <>
+      {!profile.assessed ? (
+        <OnboardingScreen profile={profile} setProfile={setProfile} />
+      ) : (
+        <>
+          <header className="sticky top-0 z-50 border-b border-gray-200 dark:border-gray-700 p-3 flex items-center justify-between gap-3 backdrop-blur supports-[backdrop-filter]:bg-white/60 dark:supports-[backdrop-filter]:bg-gray-900/60 flex-wrap">
+            <LogoArea tagline={tagline} />
+            <A11yBar
+              dark={dark}
+              setDark={setDark}
+              highContrast={highContrast}
+              setHighContrast={setHighContrast}
+              bigText={bigText}
+              setBigText={setBigText}
+              dyslexia={dyslexia}
+              setDyslexia={setDyslexia}
+              reduceMotion={reduceMotion}
+              setReduceMotion={setReduceMotion}
+            />
+          </header>
+
+          <main id="main" className="container mx-auto max-w-6xl px-4 pb-24">
             <Hero />
             {/* Tabs for different user modes */}
             <div className="mt-6">
@@ -227,15 +230,15 @@ export default function GenZAI_MVP_v3() {
               {tab === "pro" && <ProfessionalMode profile={profile} />}
               {tab === "hobby" && <HobbyMode profile={profile} />}
             </div>
-          </>
-        )}
-      </main>
-
-      <footer className="border-t border-gray-200 dark:border-gray-700">
-        <div className="container mx-auto max-w-6xl px-4 py-6 text-sm flex items-center gap-2">
-          <ShieldCheck className="h-4 w-4" /> Inclusive, privacy‑first, UK‑only MVP.
-        </div>
-      </footer>
+          </main>
+          
+          <footer className="border-t border-gray-200 dark:border-gray-700">
+            <div className="container mx-auto max-w-6xl px-4 py-6 text-sm flex items-center gap-2">
+              <ShieldCheck className="h-4 w-4" /> Inclusive, privacy‑first, UK‑only MVP.
+            </div>
+          </footer>
+        </>
+      )}
     </div>
   );
 }
@@ -446,6 +449,16 @@ function OnboardingScreen({ profile, setProfile }) {
         { label: "Fast", value: "fast" },
       ],
       field: "pace"
+    },
+    {
+      title: "Step 4: Your Primary Goal",
+      description: "Which area best fits your needs?",
+      options: [
+        { label: "Student (UK curriculum)", value: "student" },
+        { label: "Professional (Careers/CV)", value: "pro" },
+        { label: "Hobbyist (Free chat)", value: "hobby" },
+      ],
+      field: "mode"
     }
   ];
 
@@ -456,7 +469,8 @@ function OnboardingScreen({ profile, setProfile }) {
     if (step < steps.length - 1) {
       setStep(step + 1);
     } else {
-      setProfile(p => ({ ...p, assessed: true }));
+      // On the final step, set the assessed flag and the selected mode
+      setProfile(p => ({ ...p, assessed: true, mode: selectedValue }));
     }
   };
   
@@ -469,8 +483,8 @@ function OnboardingScreen({ profile, setProfile }) {
   const progress = ((step + 1) / steps.length) * 100;
 
   return (
-    <section className="mt-6">
-      <div className="bg-white dark:bg-gray-800 p-6 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-700">
+    <section className="min-h-screen flex items-center justify-center py-12">
+      <div className="bg-white dark:bg-gray-800 p-6 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-700 max-w-lg w-full">
         <div className="pb-2 flex items-center gap-2">
           <CheckCircle2 className="h-5 w-5" />
           <h2 className="text-xl font-bold">{currentStepData.title}</h2>
