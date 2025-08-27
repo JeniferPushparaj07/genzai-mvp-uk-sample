@@ -128,7 +128,6 @@ const UK_CLASSES = {
 
 // Main application component
 export default function GenZAI_MVP_v3() {
-  const [logoSrc, setLogoSrc] = useLocalStorage("genzai_logo", "");
   const [tagline] = useState("Moving minds to an immersive world");
   
   // State for accessibility settings
@@ -164,9 +163,8 @@ export default function GenZAI_MVP_v3() {
   return (
     <div className={appClass}>
       <a href="#main" className="sr-only focus:not-sr-only focus:absolute focus:top-2 focus:left-2 bg-purple-600 text-white rounded px-3 py-1">Skip to content</a>
-      <header className="sticky top-0 z-50 border-b border-gray-200 dark:border-gray-700 p-3 flex items-center gap-3 backdrop-blur supports-[backdrop-filter]:bg-white/60 dark:supports-[backdrop-filter]:bg-gray-900/60">
-        <LogoArea logoSrc={logoSrc} setLogoSrc={setLogoSrc} />
-        <div className="flex-1" />
+      <header className="sticky top-0 z-50 border-b border-gray-200 dark:border-gray-700 p-3 flex items-center justify-between gap-3 backdrop-blur supports-[backdrop-filter]:bg-white/60 dark:supports-[backdrop-filter]:bg-gray-900/60 flex-wrap">
+        <LogoArea />
         <A11yBar
           dark={dark}
           setDark={setDark}
@@ -189,33 +187,33 @@ export default function GenZAI_MVP_v3() {
           <>
             {/* Tabs for different user modes */}
             <div className="mt-6">
-              <div className="flex bg-gray-200 dark:bg-gray-800 p-1 rounded-full space-x-1">
+              <div className="flex bg-gray-200 dark:bg-gray-800 p-1 rounded-full space-x-1 sm:space-x-2">
                 <button
                   onClick={() => setTab("student")}
                   className={cx(
-                    "flex-1 p-2 rounded-full font-medium transition-colors duration-200",
+                    "flex-1 p-2 rounded-full font-medium transition-colors duration-200 text-sm md:text-base",
                     tab === "student" ? "bg-white shadow-sm dark:bg-gray-700" : "hover:bg-gray-300 dark:hover:bg-gray-700"
                   )}
                 >
-                  <GraduationCap className="h-4 w-4 inline-block mr-2" /> Student
+                  <GraduationCap className="h-4 w-4 inline-block mr-1 md:mr-2" /> Student
                 </button>
                 <button
                   onClick={() => setTab("pro")}
                   className={cx(
-                    "flex-1 p-2 rounded-full font-medium transition-colors duration-200",
+                    "flex-1 p-2 rounded-full font-medium transition-colors duration-200 text-sm md:text-base",
                     tab === "pro" ? "bg-white shadow-sm dark:bg-gray-700" : "hover:bg-gray-300 dark:hover:bg-gray-700"
                   )}
                 >
-                  <Briefcase className="h-4 w-4 inline-block mr-2" /> Professional
+                  <Briefcase className="h-4 w-4 inline-block mr-1 md:mr-2" /> Professional
                 </button>
                 <button
                   onClick={() => setTab("hobby")}
                   className={cx(
-                    "flex-1 p-2 rounded-full font-medium transition-colors duration-200",
+                    "flex-1 p-2 rounded-full font-medium transition-colors duration-200 text-sm md:text-base",
                     tab === "hobby" ? "bg-white shadow-sm dark:bg-gray-700" : "hover:bg-gray-300 dark:hover:bg-gray-700"
                   )}
                 >
-                  <Gamepad2 className="h-4 w-4 inline-block mr-2" /> Hobbyist
+                  <Gamepad2 className="h-4 w-4 inline-block mr-1 md:mr-2" /> Hobbyist
                 </button>
               </div>
 
@@ -238,33 +236,16 @@ export default function GenZAI_MVP_v3() {
 }
 
 // ---------- Header Components ----------
-function LogoArea({ logoSrc, setLogoSrc }) {
-  const fileRef = useRef(null);
-
-  function onPick(e) {
-    const f = e.target.files?.[0];
-    if (!f) return;
-    const r = new FileReader();
-    r.onload = () => setLogoSrc(r.result);
-    r.readAsDataURL(f);
-  }
-
+function LogoArea() {
   return (
     <div className="flex items-center gap-2">
       <div className="h-10 w-10 rounded-full bg-gradient-to-br from-purple-400 to-blue-600 flex items-center justify-center overflow-hidden">
-        {logoSrc ? <img src={logoSrc} alt="GenZ.AI logo" className="h-full w-full object-cover" /> : <span className="text-white font-bold">GZ</span>}
+        <span className="text-white font-bold">GZ</span>
       </div>
       <div>
         <div className="font-bold text-lg">GenZ.AI</div>
         <div className="text-xs opacity-70">Moving minds to an immersive world</div>
       </div>
-      <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={onPick} />
-      <button
-        className="px-4 py-2 text-sm rounded-full border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
-        onClick={() => fileRef.current?.click()}
-      >
-        <Upload className="h-4 w-4 inline-block mr-2" /> Logo
-      </button>
     </div>
   );
 }
@@ -275,7 +256,7 @@ function A11yBar({
   reduceMotion, setReduceMotion
 }) {
   return (
-    <div className="flex items-center gap-3 text-sm">
+    <div className="flex items-center gap-3 text-sm flex-wrap justify-end">
       <span className="px-2 py-1 bg-gray-200 dark:bg-gray-800 rounded-full text-xs flex items-center gap-1">
         <Accessibility className="h-3 w-3" /> Inclusive
       </span>
@@ -506,11 +487,11 @@ function StudentMode({ profile, reduceMotion }) {
             </h2>
           </div>
           <div className="space-y-3">
-            <div className="grid md:grid-cols-3 gap-2">
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2">
               <div>
                 <div className="text-sm font-medium">Class</div>
                 <select
-                  className="w-full border rounded-lg px-2 py-2 bg-transparent dark:bg-gray-700"
+                  className="w-full border rounded-lg px-2 py-2 bg-transparent dark:bg-gray-700 mt-1"
                   value={klass}
                   onChange={e => setKlass(e.target.value)}
                 >
@@ -520,7 +501,7 @@ function StudentMode({ profile, reduceMotion }) {
               <div>
                 <div className="text-sm font-medium">Subject</div>
                 <select
-                  className="w-full border rounded-lg px-2 py-2 bg-transparent dark:bg-gray-700"
+                  className="w-full border rounded-lg px-2 py-2 bg-transparent dark:bg-gray-700 mt-1"
                   value={subject}
                   onChange={e => setSubject(e.target.value)}
                 >
@@ -533,7 +514,7 @@ function StudentMode({ profile, reduceMotion }) {
                 </div>
               </div>
             </div>
-            <div className="flex gap-2">
+            <div className="flex flex-col sm:flex-row gap-2">
               <input
                 type="text"
                 placeholder={`Ask a ${subject} question`}
@@ -543,7 +524,7 @@ function StudentMode({ profile, reduceMotion }) {
               />
               <button
                 onClick={ask}
-                className="bg-purple-600 text-white px-6 py-3 rounded-full font-bold shadow-md hover:bg-purple-700 transition-colors"
+                className="bg-purple-600 text-white px-6 py-3 rounded-full font-bold shadow-md hover:bg-purple-700 transition-colors w-full sm:w-auto"
               >
                 <Sparkles className="h-4 w-4 inline-block mr-1" /> Explain
               </button>
@@ -623,21 +604,21 @@ function ATSTailor({ profile }) {
           value={jd}
           onChange={e => setJd(e.target.value)}
         />
-        <div className="flex items-center gap-3">
+        <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3">
           <button
             onClick={tailor}
-            className="bg-purple-600 text-white px-6 py-3 rounded-full font-bold shadow-md hover:bg-purple-700 transition-colors"
+            className="bg-purple-600 text-white px-6 py-3 rounded-full font-bold shadow-md hover:bg-purple-700 transition-colors w-full sm:w-auto"
           >
             <Sparkles className="h-4 w-4 inline-block mr-2" /> Tailor
           </button>
           {score != null && (
-            <>
+            <div className="flex items-center gap-3 mt-2 sm:mt-0 w-full sm:w-auto">
               <span className="text-sm">Match:</span>
-              <div className="w-40 h-2 rounded-full bg-gray-200 dark:bg-gray-600">
+              <div className="w-full sm:w-40 h-2 rounded-full bg-gray-200 dark:bg-gray-600">
                 <div className="h-full bg-purple-600 rounded-full transition-all duration-300" style={{ width: `${score}%` }}></div>
               </div>
               <span className="text-sm font-medium">{score}%</span>
-            </>
+            </div>
           )}
         </div>
         {score != null && (
@@ -694,13 +675,13 @@ function JobSearchDemo() {
         </h2>
       </div>
       <div className="space-y-3">
-        <div className="grid grid-cols-3 gap-2">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
           <input
             type="text"
             value={keyword}
             onChange={e => setKeyword(e.target.value)}
             placeholder="Keyword"
-            className="col-span-2 px-4 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700"
+            className="sm:col-span-2 px-4 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700"
           />
           <input
             type="text"
@@ -711,7 +692,7 @@ function JobSearchDemo() {
           />
           <button
             onClick={search}
-            className="col-span-3 bg-purple-600 text-white px-6 py-3 rounded-full font-bold shadow-md hover:bg-purple-700 transition-colors"
+            className="col-span-1 sm:col-span-3 bg-purple-600 text-white px-6 py-3 rounded-full font-bold shadow-md hover:bg-purple-700 transition-colors"
           >
             Search
           </button>
@@ -758,7 +739,7 @@ function HobbyMode({ profile }) {
             </h2>
           </div>
           <div className="space-y-3">
-            <div className="flex gap-2">
+            <div className="flex flex-col sm:flex-row gap-2">
               <input
                 type="text"
                 placeholder="Ask anything"
@@ -769,7 +750,7 @@ function HobbyMode({ profile }) {
               />
               <button
                 onClick={send}
-                className="bg-purple-600 text-white px-6 py-3 rounded-full font-bold shadow-md hover:bg-purple-700 transition-colors"
+                className="bg-purple-600 text-white px-6 py-3 rounded-full font-bold shadow-md hover:bg-purple-700 transition-colors w-full sm:w-auto"
               >
                 Send
               </button>
