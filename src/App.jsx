@@ -138,17 +138,19 @@ const App = () => {
   // Component to render the Home view
   const HomeView = () => (
     <div className="flex flex-col items-center justify-center min-h-screen p-4 sm:p-8 bg-gray-50 dark:bg-gray-900 transition-colors duration-300">
-      <div className="text-center w-full max-w-4xl">
+      <div className="flex items-center space-x-6 w-full max-w-4xl justify-center">
         {/*
           * User Note: The company logo is loaded from the public directory.
           */}
         <img 
           src="/logo.png" 
           alt="GenZ.AI Logo" 
-          className="h-16 w-16 mx-auto animate-pulse" 
+          className="h-24 w-24 animate-pulse" 
         />
-        <h1 className="text-4xl sm:text-5xl font-extrabold text-gray-900 dark:text-white mb-2 font-inter">GenZ.AI</h1>
-        <p className="text-lg sm:text-xl text-gray-600 dark:text-gray-400 font-inter">Moving minds to an immersive world</p>
+        <div className="flex flex-col items-start text-left">
+          <h1 className="text-4xl sm:text-5xl font-extrabold text-gray-900 dark:text-white mb-1 font-inter">GenZ.AI</h1>
+          <p className="text-lg sm:text-xl text-gray-600 dark:text-gray-400 font-inter">Moving minds to an immersive world</p>
+        </div>
       </div>
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6 sm:gap-8 mt-8 sm:mt-16 w-full max-w-4xl">
         <ModeCard
